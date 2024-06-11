@@ -19,7 +19,6 @@
         new ViewImpl('Tiger'),
         [],
         1,
-        handleSelect,
         ViewUI,
         ViewUIContainer
       ),
@@ -28,7 +27,6 @@
         new ViewImpl('Datastore'),
         [],
         1,
-        handleSelect,
         ViewUI,
         ViewUIContainer
       ),
@@ -41,7 +39,6 @@
             new ViewImpl('Current projects'),
             [],
             2,
-            handleSelect,
             ViewUI,
             ViewUIContainer
           ),
@@ -50,19 +47,16 @@
             new ViewImpl('On Deck'),
             [],
             2,
-            handleSelect,
             ViewUI,
             ViewUIContainer
           )
         ],
         1,
-        handleSelect,
         ViewUI,
         ViewUIContainer
       )
     ],
     0,
-    handleSelect,
     ViewUI,
     ViewUIContainer
   )
@@ -78,7 +72,7 @@
 </script>
 
 <div class="p-10">
-  <div class="text-xl">Playground</div>
+  <div class="text-xl">Selected: {$tree.selected?.id || '/'}</div>
 
   <Tree {tree} />
 </div>

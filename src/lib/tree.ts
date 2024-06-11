@@ -43,7 +43,6 @@ export class BaseTreeNode<N extends TreeNode<N, T>, T> implements TreeNode<N, T>
     public content: T,
     public children: N[],
     public level: number,
-    public onSelect: (node: N) => void
   ) {}
 
   insert(node: N, i: number) {
@@ -199,11 +198,10 @@ export class SvelteTreeNode<T>
     public content: T,
     public children: SvelteTreeNode<T>[],
     public level: number,
-    public onSelect: (node: SvelteTreeNode<T>) => void,
     public contentComponent: any,
     public containerComponent: any
   ) {
-    super(id, content, children, level, onSelect)
+    super(id, content, children, level)
   }
 
   getState(): SvelteTreeNodeState<T> {
