@@ -1,6 +1,6 @@
 <script lang="ts">
-  import TreeNode from './TreeNode.svelte'
-  import { SvelteTree } from './tree.js'
+  import TreeNode from './SvelteTreeNodeUI.svelte'
+  import { type SvelteTree } from './tree.js'
   import { setContext } from 'svelte'
   import { type Stored, stored } from '$lib/store.js'
   import type { ViewImpl } from '../routes/components/view.js'

@@ -9,3 +9,7 @@ export {
   SvelteTreeNode,
   flattenVisibleTree
 } from './tree.js'
+
+export { default as SvelteTreeUI } from './SvelteTreeUI.svelte'
+export { default as SvelteTreeNodeUI } from './SvelteTreeNodeUI.svelte'
+

@@ -3,7 +3,7 @@
   import ViewUI from './components/ViewUI.svelte'
   import { type View, ViewImpl } from './components/view.js'
   import ViewUIContainer from './components/ViewUIContainer.svelte'
-  import Tree from '$lib/Tree.svelte'
+  import Tree from '$lib/SvelteTreeUI.svelte'
   import { stored } from '$lib/store.js'
 
   function handleSelect(node: SvelteTreeNode<ViewImpl>) {
