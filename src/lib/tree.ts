@@ -63,7 +63,7 @@ export class BaseTreeNode<N extends TreeNode<N, T>, T> implements TreeNode<N, T>
   add(node: N) {
     this.children = [...this.children, node]
     // @ts-expect-error
-    this.parent = this
+    node.parent = this
   }
 
   remove(node: N) {
