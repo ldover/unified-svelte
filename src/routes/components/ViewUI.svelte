@@ -34,16 +34,21 @@
 
 <div class="view-ui">
   <button on:click={() => tree.setNavigationRoot(node)}>Set root</button>
-  <button on:keydown={handleKeyDown} id={node.id} class="flex" on:click={() => tree.select(node)}>
+  <button
+    on:keydown={handleKeyDown}
+    id={node.id}
+    class="flex"
+    on:click={() => node.selectable && tree.select(node)}
+  >
     <!-- Indent note view based on the level of nesting -->
     <div style="min-width: {node.level > 0 ? (node.level + 1) * 16 - 16 : 0}px;"></div>
 
     <div class="control flex-shrink-0">
       {#if node.children.length}
         {#if $node.collapsed}
-          <button on:click={() => node.expand()}>{'>'}</button>
+          <button on:click|stopPropagation={() => node.expand()}>{'>'}</button>
         {:else}
-          <button on:click={() => node.collapse()}>{'^'}</button>
+          <button on:click|stopPropagation={() => node.collapse()}>{'^'}</button>
         {/if}
       {/if}
     </div>

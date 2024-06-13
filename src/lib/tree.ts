@@ -28,6 +28,7 @@ function remove<T>(arr: readonly T[], i: number): T[] {
 
 export interface TreeNode<N extends TreeNode<N, T>, T> {
   id: string
+  selectable: boolean
   content: T
   parent: N | null
   children: N[]
@@ -45,16 +46,38 @@ export interface TreeNode<N extends TreeNode<N, T>, T> {
   get: (id: string) => N | null
 }
 
+interface BaseTreeNodeOptions {
+  selectable: boolean
+}
+
+const mergeOptions = <T>(defaults: T, options: Partial<T>): T => {
+  return {
+    ...defaults,
+    ...options
+  }
+}
+
 export class BaseTreeNode<N extends TreeNode<N, T>, T> implements TreeNode<N, T> {
   public collapsed: boolean = true
   public parent: N | null = null
+  public selectable: boolean
 
   constructor(
     public id: string,
     public content: T,
     public children: readonly N[],
-    public level: number
-  ) {}
+    public level: number,
+    options?: Partial<BaseTreeNodeOptions>
+  ) {
+    const merged: BaseTreeNodeOptions = mergeOptions(
+      {
+        selectable: true
+      },
+      options || {}
+    )
+
+    this.selectable = merged.selectable
+  }
 
   insert(node: N, i: number) {
     this.children = insert(this.children, node, i)
@@ -122,6 +145,9 @@ export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
   }
 
   setSelection(node: N): void {
+    if (!node.selectable) {
+      throw new Error('Cannot select node that has selectable set to false')
+    }
     this.selected = node
   }
 
@@ -133,7 +159,7 @@ export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
     if (!this.selected) {
       return
     }
-    const nodes = flattenVisibleTree(this.navigationRoot, true)
+    const nodes = flattenVisibleTree(this.navigationRoot, true).filter((node) => node.selectable)
     const i = this.findNodeIndex(nodes, this.selected)
 
     if (i > 0) {
@@ -146,7 +172,7 @@ export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
       return
     }
 
-    const nodes = flattenVisibleTree(this.navigationRoot, true)
+    const nodes = flattenVisibleTree(this.navigationRoot, true).filter((node) => node.selectable)
     const i = this.findNodeIndex(nodes, this.selected)
 
     if (i < nodes.length - 1) {
@@ -223,19 +249,30 @@ export class SvelteTree<T>
   }
 }
 
+interface SvelteTreeNodeOptions extends BaseTreeNodeOptions {
+  contentComponent: object
+  containerComponent: object
+}
+
 export class SvelteTreeNode<T>
   extends BaseTreeNode<SvelteTreeNode<T>, T>
   implements Storable<SvelteTreeNode<T>, SvelteTreeNodeState<T>>
 {
+  public contentComponent: object | null
+  public containerComponent: object | null
+
   constructor(
     public id: string,
     public content: T,
     public children: SvelteTreeNode<T>[],
     public level: number,
-    public contentComponent: any,
-    public containerComponent: any
+    options: Partial<SvelteTreeNodeOptions>
   ) {
-    super(id, content, children, level)
+    const { contentComponent, containerComponent, ...restOptions } = options
+    super(id, content, children, level, restOptions)
+
+    this.contentComponent = options.contentComponent || null
+    this.containerComponent = options.containerComponent || null
   }
 
   getState(): SvelteTreeNodeState<T> {

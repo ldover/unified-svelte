@@ -14,30 +14,40 @@
     '1',
     new ViewImpl('Workshop'),
     [
-      new SvelteTreeNode('1.1', new ViewImpl('Tiger'), [], 1, ViewUI, ViewUIContainer),
-      new SvelteTreeNode('1.2', new ViewImpl('Datastore'), [], 1, ViewUI, ViewUIContainer),
+      new SvelteTreeNode('1.1', new ViewImpl('Tiger'), [], 1, {
+        contentComponent: ViewUI,
+        containerComponent: ViewUIContainer
+      }),
+      new SvelteTreeNode('1.2', new ViewImpl('Datastore'), [], 1, {
+        contentComponent: ViewUI,
+        containerComponent: ViewUIContainer
+      }),
       new SvelteTreeNode(
         '1.3',
         new ViewImpl('All tabs'),
         [
-          new SvelteTreeNode(
-            '1.3.1',
-            new ViewImpl('Current projects'),
-            [],
-            2,
-            ViewUI,
-            ViewUIContainer
-          ),
-          new SvelteTreeNode('1.3.2', new ViewImpl('On Deck'), [], 2, ViewUI, ViewUIContainer)
+          new SvelteTreeNode('1.3.1', new ViewImpl('Current projects'), [], 2, {
+            contentComponent: ViewUI,
+            containerComponent: ViewUIContainer
+          }),
+          new SvelteTreeNode('1.3.2', new ViewImpl('On Deck'), [], 2, {
+            contentComponent: ViewUI,
+            containerComponent: ViewUIContainer
+          })
         ],
         1,
-        ViewUI,
-        ViewUIContainer
+        {
+          contentComponent: ViewUI,
+          containerComponent: ViewUIContainer,
+          selectable: false
+        }
       )
     ],
     0,
-    ViewUI,
-    ViewUIContainer
+    {
+      contentComponent: ViewUI,
+      containerComponent: ViewUIContainer
+    }
   )
 
   let tree = stored(
