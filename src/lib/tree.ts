@@ -15,6 +15,14 @@ export interface Tree<N extends TreeNode<N, T>, T> {
   down: () => void
 }
 
+function insert<T>(arr: readonly T[], item: T, i: number): T[] {
+  return [...arr].splice(i, 0, item)
+}
+
+function remove<T>(arr: readonly T[], i: number): T[] {
+  return [...arr].splice(i, 1)
+}
+
 export interface TreeNode<N extends TreeNode<N, T>, T> {
   id: string
   content: T
@@ -41,21 +49,28 @@ export class BaseTreeNode<N extends TreeNode<N, T>, T> implements TreeNode<N, T>
   constructor(
     public id: string,
     public content: T,
-    public children: N[],
-    public level: number,
+    public children: readonly N[],
+    public level: number
   ) {}
 
   insert(node: N, i: number) {
-    this.children.splice(i, 0, node)
+    this.children = insert(this.children, node, i)
+
     // @ts-ignore
     node.parent = this
+  }
+
+  add(node: N) {
+    this.children = [...this.children, node]
+    // @ts-expect-error
+    this.parent = this
   }
 
   remove(node: N) {
     const index = this.children.findIndex((child) => child.id === node.id)
     if (index !== -1) {
       // Remove the child at the found index
-      this.children.splice(index, 1)
+      this.children = remove(this.children, index)
     } else {
       // Recursively remove the node if not found in the immediate children
       this.children.forEach((child) => child.remove(node))
@@ -70,10 +85,6 @@ export class BaseTreeNode<N extends TreeNode<N, T>, T> implements TreeNode<N, T>
       if (result) return result
     }
     return null
-  }
-
-  add(node: N) {
-    this.children = [...this.children, node]
   }
 
   expand() {
@@ -115,10 +126,9 @@ export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
     if (!this.selected) {
       return
     }
-    const id = this.selected.id
     const nodes = flattenVisibleTree(this.root, true)
+    const i = this.findNodeIndex(nodes, this.selected)
 
-    const i = nodes.findIndex((v) => v.id === id)
     if (i > 0) {
       this.options.callbacks.onSelect(nodes[i - 1])
     }
@@ -128,13 +138,22 @@ export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
     if (!this.selected) {
       return
     }
-    const id = this.selected.id
-    const nodes = flattenVisibleTree(this.root, true)
 
-    const i = nodes.findIndex((v) => v.id === id)
+    const nodes = flattenVisibleTree(this.root, true)
+    const i = this.findNodeIndex(nodes, this.selected)
+
     if (i < nodes.length - 1) {
       this.options.callbacks.onSelect(nodes[i + 1])
     }
+  }
+
+  private findNodeIndex(nodes: N[], node: N): number {
+    const i = nodes.findIndex((n) => n.id === node.id)
+    if (i == -1) {
+      throw new Error(`Node not found (id=${node.id})`)
+    }
+
+    return i
   }
 }
 
