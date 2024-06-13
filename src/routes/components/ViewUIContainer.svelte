@@ -6,9 +6,12 @@
   export let node: Stored<SvelteTreeNode<ViewImpl>>
 </script>
 
-<div class="w-full rounded-md border border-orange-400">
+<div class="w-full rounded-md border border-orange-400" class:show-border={$node.borderVisible}>
   <slot />
 </div>
 
 <style>
+  .show-border {
+    border: 1px solid teal;
+  }
 </style>

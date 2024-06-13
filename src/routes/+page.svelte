@@ -39,14 +39,17 @@
         {
           contentComponent: ViewUI,
           containerComponent: ViewUIContainer,
-          selectable: false
+          selectable: false,
+          collapsed: false,
+          borderVisible: true
         }
       )
     ],
     0,
     {
       contentComponent: ViewUI,
-      containerComponent: ViewUIContainer
+      containerComponent: ViewUIContainer,
+      collapsed: false
     }
   )
 

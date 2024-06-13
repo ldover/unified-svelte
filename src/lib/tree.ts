@@ -48,6 +48,7 @@ export interface TreeNode<N extends TreeNode<N, T>, T> {
 
 interface BaseTreeNodeOptions {
   selectable: boolean
+  collapsed: boolean
 }
 
 const mergeOptions = <T>(defaults: T, options: Partial<T>): T => {
@@ -58,7 +59,7 @@ const mergeOptions = <T>(defaults: T, options: Partial<T>): T => {
 }
 
 export class BaseTreeNode<N extends TreeNode<N, T>, T> implements TreeNode<N, T> {
-  public collapsed: boolean = true
+  public collapsed: boolean
   public parent: N | null = null
   public selectable: boolean
 
@@ -71,12 +72,14 @@ export class BaseTreeNode<N extends TreeNode<N, T>, T> implements TreeNode<N, T>
   ) {
     const merged: BaseTreeNodeOptions = mergeOptions(
       {
-        selectable: true
+        selectable: true,
+        collapsed: true
       },
       options || {}
     )
 
     this.selectable = merged.selectable
+    this.collapsed = merged.collapsed
   }
 
   insert(node: N, i: number) {
@@ -201,6 +204,7 @@ export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
 export interface SvelteTreeNodeState<T> {
   content: T
   collapsed: boolean
+  borderVisible: boolean
   children: SvelteTreeNode<T>[]
   contentComponent: any
   containerComponent: any
@@ -250,8 +254,9 @@ export class SvelteTree<T>
 }
 
 interface SvelteTreeNodeOptions extends BaseTreeNodeOptions {
-  contentComponent: object
-  containerComponent: object
+  contentComponent: object | null
+  containerComponent: object | null
+  borderVisible: boolean
 }
 
 export class SvelteTreeNode<T>
@@ -260,6 +265,7 @@ export class SvelteTreeNode<T>
 {
   public contentComponent: object | null
   public containerComponent: object | null
+  public borderVisible: boolean
 
   constructor(
     public id: string,
@@ -268,11 +274,23 @@ export class SvelteTreeNode<T>
     public level: number,
     options: Partial<SvelteTreeNodeOptions>
   ) {
-    const { contentComponent, containerComponent, ...restOptions } = options
+    const merged: SvelteTreeNodeOptions = mergeOptions(
+      {
+        contentComponent: null,
+        containerComponent: null,
+        borderVisible: false,
+        selectable: true, // todo: I'm duplicating this merging from BaseTree
+        collapsed: true
+      },
+      options || {}
+    )
+    const { contentComponent, containerComponent, borderVisible, ...restOptions } = merged
+
     super(id, content, children, level, restOptions)
 
-    this.contentComponent = options.contentComponent || null
-    this.containerComponent = options.containerComponent || null
+    this.contentComponent = contentComponent
+    this.containerComponent = containerComponent
+    this.borderVisible = borderVisible
   }
 
   getState(): SvelteTreeNodeState<T> {
@@ -280,6 +298,7 @@ export class SvelteTreeNode<T>
       collapsed: this.collapsed,
       children: this.children,
       content: this.content,
+      borderVisible: this.borderVisible,
       contentComponent: this.contentComponent,
       containerComponent: this.containerComponent
     }
@@ -297,6 +316,10 @@ export class SvelteTreeNode<T>
       }
       e.focus()
     }
+  }
+
+  setBorder(borderVisible: boolean) {
+    this.borderVisible = borderVisible
   }
 }
 
