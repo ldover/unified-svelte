@@ -4,8 +4,9 @@ export interface Tree<N extends TreeNode<N, T>, T> {
   root: N
   selected: N | null // for now keep it to single-selection
 
-  /** Select node */
+  /** Set the selected node */
   setSelection: (node: N) => void
+  /** Clear the selected node */
   clearSelection: () => void
   /** Trigger node selection event */
   select: (node: N) => void
@@ -13,6 +14,8 @@ export interface Tree<N extends TreeNode<N, T>, T> {
   up: () => void
   /** Move selection down */
   down: () => void
+  /** Constrain the range of up/down navigation to a specified node */
+  setNavigationRoot: (node: N) => void
 }
 
 function insert<T>(arr: readonly T[], item: T, i: number): T[] {
@@ -103,12 +106,16 @@ export interface TreeOptions<N extends TreeNode<N, T>, T> {
 }
 
 export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
-  selected: N | null = null
+  public selected: N | null = null
+
+  private navigationRoot: N
 
   constructor(
     public root: N,
     protected options: TreeOptions<N, T>
-  ) {}
+  ) {
+    this.navigationRoot = root
+  }
 
   clearSelection(): void {
     this.selected = null
@@ -126,7 +133,7 @@ export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
     if (!this.selected) {
       return
     }
-    const nodes = flattenVisibleTree(this.root, true)
+    const nodes = flattenVisibleTree(this.navigationRoot, true)
     const i = this.findNodeIndex(nodes, this.selected)
 
     if (i > 0) {
@@ -139,12 +146,20 @@ export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
       return
     }
 
-    const nodes = flattenVisibleTree(this.root, true)
+    const nodes = flattenVisibleTree(this.navigationRoot, true)
     const i = this.findNodeIndex(nodes, this.selected)
 
     if (i < nodes.length - 1) {
       this.options.callbacks.onSelect(nodes[i + 1])
     }
+  }
+
+  setNavigationRoot(node: N) {
+    if (this.selected && !node.get(this.selected.id)) {
+      throw new Error('Selected node must be inside the navigation range')
+    }
+
+    this.navigationRoot = node
   }
 
   private findNodeIndex(nodes: N[], node: N): number {

@@ -14,22 +14,8 @@
     '1',
     new ViewImpl('Workshop'),
     [
-      new SvelteTreeNode(
-        '1.1',
-        new ViewImpl('Tiger'),
-        [],
-        1,
-        ViewUI,
-        ViewUIContainer
-      ),
-      new SvelteTreeNode(
-        '1.2',
-        new ViewImpl('Datastore'),
-        [],
-        1,
-        ViewUI,
-        ViewUIContainer
-      ),
+      new SvelteTreeNode('1.1', new ViewImpl('Tiger'), [], 1, ViewUI, ViewUIContainer),
+      new SvelteTreeNode('1.2', new ViewImpl('Datastore'), [], 1, ViewUI, ViewUIContainer),
       new SvelteTreeNode(
         '1.3',
         new ViewImpl('All tabs'),
@@ -42,14 +28,7 @@
             ViewUI,
             ViewUIContainer
           ),
-          new SvelteTreeNode(
-            '1.3.2',
-            new ViewImpl('On Deck'),
-            [],
-            2,
-            ViewUI,
-            ViewUIContainer
-          )
+          new SvelteTreeNode('1.3.2', new ViewImpl('On Deck'), [], 2, ViewUI, ViewUIContainer)
         ],
         1,
         ViewUI,
