@@ -305,7 +305,7 @@ export class SvelteTreeNode<T>
   }
 
   getReactiveProps(): string[] {
-    return ['collapsed', 'children']
+    return ['collapsed', 'children', 'borderVisible']
   }
 
   focus() {
