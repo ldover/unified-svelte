@@ -1,4 +1,4 @@
-export { stored, type Stored, type Storable } from './store.js'
+export { type Reactive, ReactiveComponent, SvelteReactiveComponent } from './store.js'
 export {
   type Tree,
   type TreeNode,

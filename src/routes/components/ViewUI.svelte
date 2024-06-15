@@ -3,9 +3,8 @@
   import { ViewImpl } from './view.js'
 
   import { SvelteTree, SvelteTreeNode } from '$lib/tree.js'
-  import type { Stored } from '$lib/store.js'
 
-  export let node: Stored<SvelteTreeNode<ViewImpl>>
+  export let node: SvelteTreeNode<ViewImpl>
 
   let tree: SvelteTree<ViewImpl> = getContext('tree')
 

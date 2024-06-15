@@ -1,9 +1,7 @@
 <script lang="ts">
   import type { SvelteTreeNode } from './tree.js'
 
-  import { type Stored, stored } from '$lib/store.js'
-
-  export let node: Stored<SvelteTreeNode<any>>
+  export let node: SvelteTreeNode<any>
 </script>
 
 <svelte:component this={$node.containerComponent} {node}>
@@ -11,7 +9,7 @@
   {#if $node.children.length && !$node.collapsed}
     <div class="w-full">
       {#each $node.children as child (child.id)}
-        <svelte:self node={stored(child)} />
+        <svelte:self node={child} />
       {/each}
     </div>
   {/if}

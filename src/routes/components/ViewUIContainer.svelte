@@ -1,9 +1,8 @@
 <script lang="ts">
   import type { SvelteTreeNode } from '$lib/tree.js'
-  import type { Stored } from '$lib/store.js'
   import type { ViewImpl } from './view.js'
 
-  export let node: Stored<SvelteTreeNode<ViewImpl>>
+  export let node: SvelteTreeNode<ViewImpl>
 </script>
 
 <div class="w-full rounded-md border border-orange-400" class:show-border={$node.borderVisible}>

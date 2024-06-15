@@ -1,13 +1,12 @@
 <script lang="ts">
+  import Tree from '$lib/SvelteTreeUI.svelte'
   import { SvelteTree, SvelteTreeNode } from '$lib/tree.js'
   import ViewUI from './components/ViewUI.svelte'
-  import { type View, ViewImpl } from './components/view.js'
   import ViewUIContainer from './components/ViewUIContainer.svelte'
-  import Tree from '$lib/SvelteTreeUI.svelte'
-  import { stored } from '$lib/store.js'
+  import { ViewImpl } from './components/view.js'
 
   function handleSelect(node: SvelteTreeNode<ViewImpl>) {
-    tree.setSelection(node)
+    tree.select(node)
   }
 
   let root = new SvelteTreeNode(
@@ -53,14 +52,16 @@
     }
   )
 
-  let tree = stored(
-    new SvelteTree(root, {
-      callbacks: {
-        onSelect: handleSelect
-      }
-    })
-  )
-  tree.setSelection(root)
+  let tree = new SvelteTree(root, {
+    callbacks: {
+      onSelect: handleSelect
+    }
+  })
+  tree.select(root)
+
+  tree.afterUpdate('selected', (prev, now) => {
+    console.log('node selected', prev?.id, now?.id)
+  })
 </script>
 
 <div class="p-10">

@@ -1,15 +1,23 @@
-import type { Storable } from '$lib/store.js'
+import { ReactiveComponent, SvelteReactiveComponent } from './store.js'
 
-export interface Tree<N extends TreeNode<N, T>, T> {
+interface TreeProps<N extends TreeNode<N, T>, T> {
   root: N
   selected: N | null // for now keep it to single-selection
+}
 
-  /** Set the selected node */
-  setSelection: (node: N) => void
-  /** Clear the selected node */
-  clearSelection: () => void
-  /** Trigger node selection event */
-  select: (node: N) => void
+interface TreeNodeProps<N extends TreeNode<N, T>, T> {
+  id: string
+  selectable: boolean
+  content: T
+  parent: N | null
+  children: N[]
+  collapsed: boolean
+  level: number
+}
+
+export interface Tree<N extends TreeNode<N, T>, T> extends TreeProps<N, T> {
+  /** Select node or clear selection */
+  select: (node: N | null) => void
   /** Move selection up */
   up: () => void
   /** Move selection down */
@@ -26,17 +34,9 @@ function remove<T>(arr: readonly T[], i: number): T[] {
   return [...arr].splice(i, 1)
 }
 
-export interface TreeNode<N extends TreeNode<N, T>, T> {
-  id: string
-  selectable: boolean
-  content: T
-  parent: N | null
-  children: N[]
-  collapsed: boolean
+export interface TreeNode<N extends TreeNode<N, T>, T> extends TreeNodeProps<N, T> {
   expand: () => void
   collapse: () => void
-
-  level: number
 
   add: (node: N) => void
   insert: (node: N, i: number) => void
@@ -58,18 +58,22 @@ const mergeOptions = <T>(defaults: T, options: Partial<T>): T => {
   }
 }
 
-export class BaseTreeNode<N extends TreeNode<N, T>, T> implements TreeNode<N, T> {
+export class BaseTreeNode<N extends TreeNode<N, T>, T>
+  extends ReactiveComponent<TreeNodeProps<N, T>>
+  implements TreeNode<N, T>
+{
   public collapsed: boolean
   public parent: N | null = null
   public selectable: boolean
 
   constructor(
-    public id: string,
+    public readonly id: string,
     public content: T,
     public children: readonly N[],
     public level: number,
     options?: Partial<BaseTreeNodeOptions>
   ) {
+    super()
     const merged: BaseTreeNodeOptions = mergeOptions(
       {
         selectable: true,
@@ -123,39 +127,37 @@ export class BaseTreeNode<N extends TreeNode<N, T>, T> implements TreeNode<N, T>
   collapse() {
     this.collapsed = true
   }
-}
 
-export interface TreeOptions<N extends TreeNode<N, T>, T> {
-  callbacks: {
-    onSelect: (node: N) => void
+  update(): void {
+    // todo: do we need this?
   }
 }
 
-export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
+export interface TreeOptions<N extends TreeNode<N, T>, T> {}
+
+export class BaseTree<N extends TreeNode<N, T>, T>
+  extends ReactiveComponent<TreeProps<N, T>>
+  implements Tree<N, T>
+{
   public selected: N | null = null
 
   private navigationRoot: N
 
   constructor(
     public root: N,
-    protected options: TreeOptions<N, T>
+    options?: TreeOptions<N, T>
   ) {
+    super()
     this.navigationRoot = root
   }
 
-  clearSelection(): void {
-    this.selected = null
-  }
-
-  setSelection(node: N): void {
-    if (!node.selectable) {
-      throw new Error('Cannot select node that has selectable set to false')
+  select(node: N | null): void {
+    if (node != this.selected) {
+      if (node && !node.selectable) {
+        throw new Error('Cannot select node that has selectable set to false')
+      }
+      this.selected = node
     }
-    this.selected = node
-  }
-
-  select(node: N): void {
-    this.options.callbacks.onSelect(node)
   }
 
   up(): void {
@@ -166,7 +168,7 @@ export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
     const i = this.findNodeIndex(nodes, this.selected)
 
     if (i > 0) {
-      this.options.callbacks.onSelect(nodes[i - 1])
+      this.select(nodes[i - 1])
     }
   }
 
@@ -179,7 +181,7 @@ export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
     const i = this.findNodeIndex(nodes, this.selected)
 
     if (i < nodes.length - 1) {
-      this.options.callbacks.onSelect(nodes[i + 1])
+      this.select(nodes[i + 1])
     }
   }
 
@@ -199,57 +201,95 @@ export class BaseTree<N extends TreeNode<N, T>, T> implements Tree<N, T> {
 
     return i
   }
+
+  update(): void {
+    // todo: do we need this?
+  }
 }
 
-export interface SvelteTreeNodeState<T> {
-  content: T
-  collapsed: boolean
+export interface SvelteTreeNodeProps<T> extends TreeNodeProps<SvelteTreeNode<T>, T> {
   borderVisible: boolean
-  children: SvelteTreeNode<T>[]
   contentComponent: any
   containerComponent: any
 }
 
-export interface SvelteTreeState<T> {
-  root: SvelteTreeNode<T>
-  selected: SvelteTreeNode<T> | null
-}
+export interface SvelteTreeProps<T> extends TreeProps<SvelteTreeNode<T>, T> {}
 
 export class SvelteTree<T>
-  extends BaseTree<SvelteTreeNode<T>, T>
-  implements Storable<SvelteTree<T>, SvelteTreeState<T>>
+  extends SvelteReactiveComponent<SvelteTreeProps<T>>
+  implements Tree<SvelteTreeNode<T>, T>
 {
-  constructor(
-    public root: SvelteTreeNode<T>,
-    protected options: TreeOptions<SvelteTreeNode<T>, T>
-  ) {
-    super(root, options)
+  public selected: SvelteTreeNode<T> | null = null
+  public root: SvelteTreeNode<T>
+
+  private navigationRoot: SvelteTreeNode<T>
+
+  constructor(root: SvelteTreeNode<T>, options?: TreeOptions<SvelteTreeNode<T>, T>) {
+    super()
+    this.root = root
+    this.navigationRoot = root
   }
 
-  getState(): SvelteTreeState<T> {
+  getState(): SvelteTreeProps<T> {
     return {
       root: this.root,
       selected: this.selected
     }
   }
 
-  getReactiveProps(): string[] {
-    return ['selected']
+  select(node: SvelteTreeNode<T> | null): void {
+    if (node != this.selected) {
+      if (node && !node.selectable) {
+        throw new Error('Cannot select node that has selectable set to false')
+      }
+      this.selected = node
+    }
   }
 
-  select(node: SvelteTreeNode<T>) {
-    super.select(node)
-    this.selected?.focus()
+  up(): void {
+    if (!this.selected) {
+      return
+    }
+    const nodes = flattenVisibleTree(this.navigationRoot, true).filter((node) => node.selectable)
+    const i = this.findNodeIndex(nodes, this.selected)
+
+    if (i > 0) {
+      const node = nodes[i - 1]
+      this.select(node)
+      node.focus()
+    }
   }
 
-  up() {
-    super.up()
-    this.selected?.focus()
+  down(): void {
+    if (!this.selected) {
+      return
+    }
+
+    const nodes = flattenVisibleTree(this.navigationRoot, true).filter((node) => node.selectable)
+    const i = this.findNodeIndex(nodes, this.selected)
+
+    if (i < nodes.length - 1) {
+      const node = nodes[i + 1]
+      this.select(node)
+      node.focus()
+    }
   }
 
-  down() {
-    super.down()
-    this.selected?.focus()
+  setNavigationRoot(node: SvelteTreeNode<T>) {
+    if (this.selected && !node.get(this.selected.id)) {
+      throw new Error('Selected node must be inside the navigation range')
+    }
+
+    this.navigationRoot = node
+  }
+
+  private findNodeIndex(nodes: SvelteTreeNode<T>[], node: SvelteTreeNode<T>): number {
+    const i = nodes.findIndex((n) => n.id === node.id)
+    if (i == -1) {
+      throw new Error(`Node not found (id=${node.id})`)
+    }
+
+    return i
   }
 }
 
@@ -260,20 +300,29 @@ interface SvelteTreeNodeOptions extends BaseTreeNodeOptions {
 }
 
 export class SvelteTreeNode<T>
-  extends BaseTreeNode<SvelteTreeNode<T>, T>
-  implements Storable<SvelteTreeNode<T>, SvelteTreeNodeState<T>>
+  extends SvelteReactiveComponent<SvelteTreeNodeProps<T>>
+  implements TreeNode<SvelteTreeNode<T>, T>
 {
+  public id: string
+  public content: T
+  public children: SvelteTreeNode<T>[]
+  public level: number
+
   public contentComponent: object | null
   public containerComponent: object | null
   public borderVisible: boolean
+  public selectable: boolean
+  public collapsed: boolean
+  public parent: SvelteTreeNode<T> | null
 
   constructor(
-    public id: string,
-    public content: T,
-    public children: SvelteTreeNode<T>[],
-    public level: number,
+    id: string,
+    content: T,
+    children: SvelteTreeNode<T>[],
+    level: number,
     options: Partial<SvelteTreeNodeOptions>
   ) {
+    super()
     const merged: SvelteTreeNodeOptions = mergeOptions(
       {
         contentComponent: null,
@@ -284,17 +333,67 @@ export class SvelteTreeNode<T>
       },
       options || {}
     )
-    const { contentComponent, containerComponent, borderVisible, ...restOptions } = merged
 
-    super(id, content, children, level, restOptions)
-
-    this.contentComponent = contentComponent
-    this.containerComponent = containerComponent
-    this.borderVisible = borderVisible
+    this.id = id
+    this.content = content
+    this.children = children
+    this.level = level
+    this.contentComponent = merged.contentComponent
+    this.containerComponent = merged.containerComponent
+    this.borderVisible = merged.borderVisible
+    this.selectable = merged.selectable
+    this.collapsed = merged.collapsed
+    this.collapsed = merged.collapsed
+    this.parent = null
   }
 
-  getState(): SvelteTreeNodeState<T> {
+  insert(node: SvelteTreeNode<T>, i: number) {
+    this.children = insert(this.children, node, i)
+
+    // @ts-ignore
+    node.parent = this
+  }
+
+  add(node: SvelteTreeNode<T>) {
+    this.children = [...this.children, node]
+    node.parent = this
+  }
+
+  remove(node: SvelteTreeNode<T>) {
+    const index = this.children.findIndex((child) => child.id === node.id)
+    if (index !== -1) {
+      // Remove the child at the found index
+      this.children = remove(this.children, index)
+    } else {
+      // Recursively remove the node if not found in the immediate children
+      this.children.forEach((child) => child.remove(node))
+    }
+  }
+
+  // @ts-ignore
+  get(id: string): SvelteTreeNode<T> | null {
+    if (this.id === id) return this as any as SvelteTreeNode<T>
+    for (let child of this.children) {
+      let result = child.get(id)
+      if (result) return result
+    }
+    return null
+  }
+
+  expand() {
+    this.collapsed = false
+  }
+
+  collapse() {
+    this.collapsed = true
+  }
+
+  getState(): SvelteTreeNodeProps<T> {
     return {
+      id: this.id,
+      selectable: this.selectable,
+      parent: this.parent,
+      level: this.level,
       collapsed: this.collapsed,
       children: this.children,
       content: this.content,
@@ -302,10 +401,6 @@ export class SvelteTreeNode<T>
       contentComponent: this.contentComponent,
       containerComponent: this.containerComponent
     }
-  }
-
-  getReactiveProps(): string[] {
-    return ['collapsed', 'children', 'borderVisible']
   }
 
   focus() {
