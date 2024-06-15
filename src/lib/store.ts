@@ -36,6 +36,9 @@ export abstract class ReactiveComponent<T> implements Reactive<T> {
 
         self.update()
         return true // Indicate success
+      },
+      get(target, property, receiver) {
+        return Reflect.get(target, property, receiver)
       }
     })
   }
@@ -76,6 +79,9 @@ export abstract class SvelteReactiveComponent<T> implements Reactive<T>, Readabl
 
         self.update()
         return true // Indicate success
+      },
+      get(target, property, receiver) {
+        return Reflect.get(target, property, receiver)
       }
     })
   }
