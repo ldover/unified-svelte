@@ -5,10 +5,6 @@
   import ViewUIContainer from './components/ViewUIContainer.svelte'
   import { ViewImpl } from './components/view.js'
 
-  function handleSelect(node: SvelteTreeNode<ViewImpl>) {
-    tree.select(node)
-  }
-
   let root = new SvelteTreeNode(
     '1',
     new ViewImpl('Workshop'),
@@ -52,16 +48,13 @@
     }
   )
 
-  let tree = new SvelteTree(root, {
-    callbacks: {
-      onSelect: handleSelect
-    }
-  })
+  let tree = new SvelteTree(root)
   tree.select(root)
 
-  tree.afterUpdate('selected', (prev, now) => {
-    console.log('node selected', prev?.id, now?.id)
-  })
+  tree.beforeSet('selected', (value, prevValue) => console.log('beforeSet', { value, prevValue }))
+  tree.beforeUpdate((value, prevValue) => console.log('beforeUpdate', { value, prevValue }))
+  tree.afterUpdate((value, prevValue) => console.log('afterUpdate', { value, prevValue }))
+  tree.afterSet('selected', (value, prevValue) => console.log('afterSet', { value, prevValue }))
 </script>
 
 <div class="p-10">

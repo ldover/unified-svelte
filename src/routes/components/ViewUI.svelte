@@ -2,7 +2,7 @@
   import { getContext } from 'svelte'
   import { ViewImpl } from './view.js'
 
-  import { SvelteTree, SvelteTreeNode } from '$lib/tree.js'
+  import type { SvelteTree, SvelteTreeNode } from '$lib/tree.js'
 
   export let node: SvelteTreeNode<ViewImpl>
 
