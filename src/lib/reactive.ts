@@ -17,9 +17,13 @@ export interface Reactive<Props> {
   beforeSet: <K extends keyof Props>(prop: K, listener: PropListener<Props[K]>) => Unsubscriber
   afterUpdate: (listener: UpdateListener<Props>) => Unsubscriber
   beforeUpdate: (listener: UpdateListener<Props>) => Unsubscriber
+  getProp: <K extends keyof Props>(property: K) => Props[K]
+  getProps: () => Props
 }
 
-export interface SvelteReactive<Props, State = Props> extends Reactive<Props>, Readable<State> {}
+export interface SvelteReactive<Props, State = Props> extends Reactive<Props>, Readable<State> {
+  getState: () => State
+}
 
 function createUnsubscriber(listeners: any[], listener: any): Unsubscriber {
   return () => {
@@ -90,13 +94,21 @@ export abstract class ReactiveComponent<Props> implements Reactive<Props> {
     this.listeners.afterPropListeners[property]?.forEach((listener) => listener(value, prevValue))
     this.listeners.afterUpdateListeners.forEach((listener) => listener({ ...newProps }, prevProps))
   }
+
+  public getProp<K extends keyof Props>(property: K): Props[K] {
+    return this.props[property]
+  }
+
+  public getProps(): Props {
+    return { ...this.props }
+  }
 }
 
 export abstract class SvelteReactiveComponent<Props, State = Props>
   implements SvelteReactive<Props, State>
 {
   private store: Writable<State>
-  protected props: Props
+  private props: Props
   private listeners: {
     beforePropListeners: { [K in keyof Props]?: PropListener<Props[K]>[] }
     afterPropListeners: { [K in keyof Props]?: PropListener<Props[K]>[] }
@@ -167,6 +179,14 @@ export abstract class SvelteReactiveComponent<Props, State = Props>
   }
 
   public getState(): State {
-    return this.deriveState ? this.deriveState(this.props) : (this.props as any as State)
+    return this.deriveState ? this.deriveState(this.props) : (this.getProps() as any as State)
+  }
+
+  public getProp<K extends keyof Props>(property: K): Props[K] {
+    return this.props[property]
+  }
+
+  public getProps(): Props {
+    return { ...this.props }
   }
 }

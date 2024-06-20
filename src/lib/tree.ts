@@ -79,21 +79,15 @@ export class SvelteTree<T>
   }
 
   get selected() {
-    return this.props.selected
+    return this.getProp('selected')
   }
 
   get root() {
-    return this.props.root
+    return this.getProp('root')
   }
 
   get navigationRoot() {
-    return this.props.navigationRoot
-  }
-
-  getState(): SvelteTreeProps<T> {
-    return {
-      ...this.props
-    }
+    return this.getProp('navigationRoot')
   }
 
   select(node: SvelteTreeNode<T> | null): void {
@@ -195,43 +189,43 @@ export class SvelteTreeNode<T>
   }
 
   get id(): string {
-    return this.props.id
+    return this.getProp('id')
   }
 
   get content(): T {
-    return this.props.content
+    return this.getProp('content')
   }
 
   get children(): SvelteTreeNode<T>[] {
-    return this.props.children
+    return this.getProp('children')
   }
 
   get level(): number {
-    return this.props.level
+    return this.getProp('level')
   }
 
   get contentComponent(): object | null {
-    return this.props.contentComponent
+    return this.getProp('contentComponent')
   }
 
   get containerComponent(): object | null {
-    return this.props.containerComponent
+    return this.getProp('containerComponent')
   }
 
   get borderVisible(): boolean {
-    return this.props.borderVisible
+    return this.getProp('borderVisible')
   }
 
   get selectable(): boolean {
-    return this.props.selectable
+    return this.getProp('selectable')
   }
 
   get collapsed(): boolean {
-    return this.props.collapsed
+    return this.getProp('collapsed')
   }
 
   get parent(): SvelteTreeNode<T> | null {
-    return this.props.parent
+    return this.getProp('parent')
   }
 
   insert(node: SvelteTreeNode<T>, i: number) {
@@ -253,7 +247,7 @@ export class SvelteTreeNode<T>
       this.set('children', remove(this.children, index))
     } else {
       // Recursively remove the node if not found in the immediate children
-      this.props.children.forEach((child) => child.remove(node))
+      this.getProp('children').forEach((child) => child.remove(node))
     }
   }
 
@@ -273,12 +267,6 @@ export class SvelteTreeNode<T>
 
   collapse() {
     this.set('collapsed', true)
-  }
-
-  getState(): SvelteTreeNodeProps<T> {
-    return {
-      ...this.props
-    }
   }
 
   focus() {
