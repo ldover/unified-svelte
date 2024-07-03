@@ -34,7 +34,9 @@ function insert<T>(arr: readonly T[], item: T, i: number): T[] {
 }
 
 function remove<T>(arr: readonly T[], i: number): T[] {
-  return [...arr].splice(i, 1)
+  const newArr = [...arr]
+  newArr.splice(i, 1)
+  return newArr
 }
 
 export interface TreeNode<N extends TreeNode<N, T>, T> extends TreeNodeProps<N, T> {
