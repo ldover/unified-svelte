@@ -275,16 +275,6 @@ export class SvelteTreeNode<T extends ID>
     return this.getProp('parent')
   }
 
-  insert(node: SvelteTreeNode<T>, i: number) {
-    this.set('children', insert(this.children, node, i))
-    node.set('parent', this)
-  }
-
-  add(node: SvelteTreeNode<T>) {
-    this.set('children', [...this.children, node])
-    node.set('parent', this)
-  }
-
   remove(node: SvelteTreeNode<T>, deep: boolean = false): boolean {
     let removed = false
     const index = this.children.findIndex((child) => child.id === node.id)
