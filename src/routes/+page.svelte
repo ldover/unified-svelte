@@ -5,6 +5,7 @@
   import ViewUIContainer from './components/ViewUIContainer.svelte'
   import { ViewImpl } from './components/view.js'
 
+  let view = new ViewImpl('Datastore')
   let root = new SvelteTreeNode(
     '1',
     new ViewImpl('Workshop'),
@@ -13,7 +14,11 @@
         contentComponent: ViewUI,
         containerComponent: ViewUIContainer
       }),
-      new SvelteTreeNode('1.2', new ViewImpl('Datastore'), [], 1, {
+      new SvelteTreeNode('1.2', view, [], 1, {
+        contentComponent: ViewUI,
+        containerComponent: ViewUIContainer
+      }),
+      new SvelteTreeNode('1.20', view, [], 1, {
         contentComponent: ViewUI,
         containerComponent: ViewUIContainer
       }),
@@ -26,6 +31,10 @@
             containerComponent: ViewUIContainer
           }),
           new SvelteTreeNode('1.3.2', new ViewImpl('On Deck'), [], 2, {
+            contentComponent: ViewUI,
+            containerComponent: ViewUIContainer
+          }),
+          new SvelteTreeNode('1.3.3', view, [], 1, {
             contentComponent: ViewUI,
             containerComponent: ViewUIContainer
           })

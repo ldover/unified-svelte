@@ -3,6 +3,7 @@ import { ReactiveComponent, SvelteReactiveComponent } from './reactive.js'
 interface TreeProps<N extends TreeNode<N, T>, T> {
   root: N
   selected: N | null // for now keep it to single-selection
+  navigationRoot: N
 }
 
 interface TreeNodeProps<N extends TreeNode<N, T>, T> {
@@ -16,14 +17,16 @@ interface TreeNodeProps<N extends TreeNode<N, T>, T> {
 }
 
 export interface Tree<N extends TreeNode<N, T>, T> extends TreeProps<N, T> {
+  add(node: N, parent: N): void
+  insert(node: N, parent: N, i: number): void
   /** Select node or clear selection */
-  select: (node: N | null) => void
+  select(node: N | null): void
   /** Move selection up */
-  up: () => void
+  up(): void
   /** Move selection down */
-  down: () => void
+  down(): void
   /** Constrain the range of up/down navigation to a specified node */
-  setNavigationRoot: (node: N) => void
+  setNavigationRoot(node: N): void
 }
 
 function insert<T>(arr: readonly T[], item: T, i: number): T[] {
@@ -35,15 +38,12 @@ function remove<T>(arr: readonly T[], i: number): T[] {
 }
 
 export interface TreeNode<N extends TreeNode<N, T>, T> extends TreeNodeProps<N, T> {
-  expand: () => void
-  collapse: () => void
-
-  add: (node: N) => void
-  insert: (node: N, i: number) => void
+  expand(): void
+  collapse(): void
   /** Removes either direct child or descendant */
-  remove: (node: N) => void
+  remove(node: N): void
   /** Gets the direct child or descendant */
-  get: (id: string) => N | null
+  get(id: string): N | null
 }
 
 interface BaseTreeNodeOptions {
@@ -60,22 +60,23 @@ const mergeOptions = <T>(defaults: T, options: Partial<T>): T => {
 
 export interface TreeOptions<N extends TreeNode<N, T>, T> {}
 
-export interface SvelteTreeNodeProps<T> extends TreeNodeProps<SvelteTreeNode<T>, T> {
+export interface SvelteTreeNodeProps<T extends ID> extends TreeNodeProps<SvelteTreeNode<T>, T> {
   borderVisible: boolean
   contentComponent: any
   containerComponent: any
 }
 
-export interface SvelteTreeProps<T> extends TreeProps<SvelteTreeNode<T>, T> {
-  navigationRoot: SvelteTreeNode<T>
-}
+export interface SvelteTreeProps<T extends ID> extends TreeProps<SvelteTreeNode<T>, T> {}
 
-export class SvelteTree<T>
+export class SvelteTree<T extends ID>
   extends SvelteReactiveComponent<SvelteTreeProps<T>>
   implements Tree<SvelteTreeNode<T>, T>
 {
+  private ids?: Set<string>
+
   constructor(root: SvelteTreeNode<T>, options?: TreeOptions<SvelteTreeNode<T>, T>) {
     super({ root, navigationRoot: root, selected: null })
+    this.validate()
   }
 
   get selected() {
@@ -88,6 +89,24 @@ export class SvelteTree<T>
 
   get navigationRoot() {
     return this.getProp('navigationRoot')
+  }
+
+  add(node: SvelteTreeNode<T>, parent: SvelteTreeNode<T>): void {
+    if (this.ids?.has(node.id)) {
+      this._throwUniqueError(node.id)
+    }
+    this.ids?.add(node.id)
+    parent.set('children', [...parent.children, node])
+    node.set('parent', parent)
+  }
+
+  insert(node: SvelteTreeNode<T>, parent: SvelteTreeNode<T>, i: number): void {
+    if (this.ids?.has(node.id)) {
+      this._throwUniqueError(node.id)
+    }
+    this.ids?.add(node.id)
+    parent.set('children', insert(parent.children, node, i))
+    node.set('parent', parent)
   }
 
   select(node: SvelteTreeNode<T> | null): void {
@@ -144,6 +163,30 @@ export class SvelteTree<T>
 
     return i
   }
+
+  private validate() {
+    // Check for unique ids
+    const set = new Set([this.root.id])
+    const validateOne = (node: SvelteTreeNode<T>) => {
+      node.children.forEach((child) => {
+        if (set.has(child.id)) {
+          this._throwUniqueError(child.id)
+        }
+        set.add(child.id)
+        validateOne(child)
+      })
+    }
+
+    validateOne(this.root)
+
+    this.ids = set
+  }
+
+  private _throwUniqueError(id: string) {
+    throw new Error(
+      'Tree validation failed: nodes must have unique ids, but found two nodes with id ' + id
+    )
+  }
 }
 
 interface SvelteTreeNodeOptions extends BaseTreeNodeOptions {
@@ -152,7 +195,11 @@ interface SvelteTreeNodeOptions extends BaseTreeNodeOptions {
   borderVisible: boolean
 }
 
-export class SvelteTreeNode<T>
+interface ID {
+  id: string
+}
+
+export class SvelteTreeNode<T extends ID>
   extends SvelteReactiveComponent<SvelteTreeNodeProps<T>>
   implements TreeNode<SvelteTreeNode<T>, T>
 {
@@ -230,9 +277,7 @@ export class SvelteTreeNode<T>
 
   insert(node: SvelteTreeNode<T>, i: number) {
     this.set('children', insert(this.children, node, i))
-
-    // @ts-ignore
-    node.parent = this
+    node.set('parent', this)
   }
 
   add(node: SvelteTreeNode<T>) {
@@ -240,25 +285,54 @@ export class SvelteTreeNode<T>
     node.set('parent', this)
   }
 
-  remove(node: SvelteTreeNode<T>) {
+  remove(node: SvelteTreeNode<T>, deep: boolean = false): boolean {
+    let removed = false
     const index = this.children.findIndex((child) => child.id === node.id)
     if (index !== -1) {
-      // Remove the child at the found index
       this.set('children', remove(this.children, index))
     } else {
-      // Recursively remove the node if not found in the immediate children
-      this.getProp('children').forEach((child) => child.remove(node))
+      if (deep) {
+        for (const child of this.getProp('children')) {
+          removed = child.remove(node)
+          if (removed) {
+            return removed
+          }
+        }
+      }
     }
+
+    return removed
   }
 
-  // @ts-ignore
-  get(id: string): SvelteTreeNode<T> | null {
-    if (this.id === id) return this as any as SvelteTreeNode<T>
+  get(id: string, deep: boolean = false): SvelteTreeNode<T> | null {
+    if (this.id === id) return this
     for (let child of this.children) {
-      let result = child.get(id)
-      if (result) return result
+      if (child.id === id) {
+        return child
+      }
     }
+
+    if (deep) {
+      for (let child of this.children) {
+        let result = child.get(id)
+        if (result) return result
+      }
+    }
+
     return null
+  }
+
+  getByContentId(contentId: string): SvelteTreeNode<T>[] {
+    let result: SvelteTreeNode<T>[] = []
+    for (let child of this.children) {
+      result = [...result, ...child.getByContentId(contentId)]
+    }
+
+    if (this.content.id === contentId) {
+      return [this, ...result]
+    } else {
+      return result
+    }
   }
 
   expand() {
