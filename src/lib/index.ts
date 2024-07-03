@@ -1,8 +1,8 @@
 export { ReactiveComponent, SvelteReactiveComponent, type Reactive } from './reactive.js'
 export {
   flattenVisibleTree,
-  type SvelteTree,
-  type SvelteTreeNode,
+  SvelteTree,
+  SvelteTreeNode,
   type Tree,
   type TreeNode,
   type TreeOptions
