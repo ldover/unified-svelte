@@ -30,7 +30,9 @@ export interface Tree<N extends TreeNode<N, T>, T> extends TreeProps<N, T> {
 }
 
 function insert<T>(arr: readonly T[], item: T, i: number): T[] {
-  return [...arr].splice(i, 0, item)
+  const newArr = [...arr]
+  newArr.splice(i, 0, item);
+  return newArr
 }
 
 function remove<T>(arr: readonly T[], i: number): T[] {
@@ -278,22 +280,21 @@ export class SvelteTreeNode<T extends ID>
   }
 
   remove(node: SvelteTreeNode<T>, deep: boolean = false): boolean {
-    let removed = false
     const index = this.children.findIndex((child) => child.id === node.id)
     if (index !== -1) {
       this.set('children', remove(this.children, index))
+      return true
     } else {
       if (deep) {
         for (const child of this.getProp('children')) {
-          removed = child.remove(node)
-          if (removed) {
-            return removed
+          if (child.remove(node, deep)) {
+            return true
           }
         }
       }
     }
 
-    return removed
+    return false
   }
 
   get(id: string, deep: boolean = false): SvelteTreeNode<T> | null {
