@@ -1,4 +1,6 @@
-import { ReactiveComponent, SvelteReactiveComponent } from './reactive.js'
+import { insert, remove } from './util.js'
+import { SvelteReactiveComponent } from './reactive.js'
+import { mergeOptions } from './util.js'
 
 interface TreeProps<N extends TreeNode<N, T>, T> {
   root: N
@@ -29,18 +31,6 @@ export interface Tree<N extends TreeNode<N, T>, T> extends TreeProps<N, T> {
   setNavigationRoot(node: N): void
 }
 
-function insert<T>(arr: readonly T[], item: T, i: number): T[] {
-  const newArr = [...arr]
-  newArr.splice(i, 0, item);
-  return newArr
-}
-
-function remove<T>(arr: readonly T[], i: number): T[] {
-  const newArr = [...arr]
-  newArr.splice(i, 1)
-  return newArr
-}
-
 export interface TreeNode<N extends TreeNode<N, T>, T> extends TreeNodeProps<N, T> {
   expand(): void
   collapse(): void
@@ -53,13 +43,6 @@ export interface TreeNode<N extends TreeNode<N, T>, T> extends TreeNodeProps<N, 
 interface BaseTreeNodeOptions {
   selectable: boolean
   collapsed: boolean
-}
-
-const mergeOptions = <T>(defaults: T, options: Partial<T>): T => {
-  return {
-    ...defaults,
-    ...options
-  }
 }
 
 export interface TreeOptions<N extends TreeNode<N, T>, T> {}
