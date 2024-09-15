@@ -15,3 +15,10 @@ export const mergeOptions = <T>(defaults: T, options: Partial<T>): T => {
     ...options
   }
 }
+
+export const inView = (container: HTMLElement, item: HTMLElement) => {
+  const elemRect = item.getBoundingClientRect()
+  const contRect = container.getBoundingClientRect()
+
+  return elemRect.top >= contRect.top && elemRect.bottom <= contRect.bottom
+}

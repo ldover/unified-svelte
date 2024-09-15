@@ -40,6 +40,8 @@
       list.up()
     } else if (e.key == 'ArrowDown' && !metaKeys) {
       list.down()
+    } else if (e.key == 'a' && e.metaKey) {
+      list.selectAll()
     }
   }
 </script>

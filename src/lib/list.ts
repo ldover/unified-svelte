@@ -1,23 +1,29 @@
 import { SvelteReactiveComponent } from './reactive.js'
-import { insert, mergeOptions, remove } from './util.js'
+import { inView, insert, mergeOptions, remove } from './util.js'
 
-interface ListItemProps<T extends ID> {
+interface ListItemProps<T extends Content> {
   id: string
   selectable: boolean
   content: T
 }
 
-interface ListProps<N extends ListItem<T>, T extends ID> {
+interface ListProps<N extends ListItem<T>, T extends Content> {
   items: N[]
   selection: Record<string, N>
 }
 
-interface SvelteListProps<T extends ID> extends ListProps<SvelteListItem<T>, T> {
+interface SvelteListProps<T extends Content> extends ListProps<SvelteListItem<T>, T> {
   e: HTMLElement | null
   focused: SvelteListItem<T> | null
 }
 
-export interface List<N extends ListItem<T>, T extends ID> {
+interface SelectOptions {
+  scrollIntoView?: boolean // defaults to true
+  focus?: boolean // defaults to false
+}
+
+export interface List<N extends ListItem<T>, T extends Content> {
+  setItems(items: N[]): void
   // todo: change these methods to support multiple items: `...items`
   /** Adds item to the end of the list */
   add(item: N): void
@@ -27,7 +33,8 @@ export interface List<N extends ListItem<T>, T extends ID> {
   /** Removes items from the list */
   remove(item: N): void
   /** Select item or clear selection */
-  select(item: N | null): void
+  select(item: N | null, options?: SelectOptions): void
+  selectAll(): void
   /** Extends selection to the provided item */
   extendSelection(item: N): void
   /** Adds this item to selection */
@@ -42,15 +49,17 @@ export interface List<N extends ListItem<T>, T extends ID> {
   down(): void
   /** Gets item by id */
   getItem(id: string): N | null
+  /** Gets item by content id */
+  getByContentId(id: string): N | null
 }
 
-export interface ListItem<T extends ID> extends ListItemProps<T> {}
+export interface ListItem<T extends Content> extends ListItemProps<T> {}
 
-export interface SvelteListItemProps<T extends ID> extends ListItemProps<T> {
+export interface SvelteListItemProps<T extends Content> extends ListItemProps<T> {
   component: any
 }
 
-export class SvelteList<T extends ID>
+export class SvelteList<T extends Content>
   extends SvelteReactiveComponent<SvelteListProps<T>>
   implements List<SvelteListItem<T>, T>
 {
@@ -61,6 +70,12 @@ export class SvelteList<T extends ID>
 
   constructor(items: SvelteListItem<T>[]) {
     super({ selection: {}, items, focused: null, e: null })
+  }
+
+  setItems(items: SvelteListItem<T>[]): void {
+    this.items.forEach((item) => item.destroy())
+    this.set('selection', {}) // Reset selection when reseting the list
+    this.set('items', items)
   }
 
   add(item: SvelteListItem<T>): void {
@@ -82,6 +97,7 @@ export class SvelteList<T extends ID>
     if (index === -1) {
       throw new Error('Item not found')
     }
+    this.items[index].destroy()
     const items = remove(this.items, index)
     this.set('items', items)
 
@@ -96,9 +112,23 @@ export class SvelteList<T extends ID>
     }
   }
 
-  select(item: SvelteListItem<T>): void {
+  select(item: SvelteListItem<T>, options?: SelectOptions): void {
     this.set('selection', { [item.id]: item })
     this._lastSelection = item
+
+    let eItem = document.getElementById(item.id)
+    if (options?.scrollIntoView != false && this.e && eItem && !inView(this.e, eItem)) {
+      eItem.scrollIntoView({ behavior: 'instant', block: 'nearest' })
+    }
+
+    if (options?.focus && !item.focused()) {
+      item.focus()
+    }
+  }
+
+  selectAll(): void {
+    const selection = Object.fromEntries(this.items.map((item) => [item.id, item]))
+    this.set('selection', selection)
   }
 
   // todo: this is only a partial implementation of multiple select that doesn't handle the combinations
@@ -171,6 +201,10 @@ export class SvelteList<T extends ID>
     return this.items.find((i) => i.id === id) || null
   }
 
+  getByContentId(id: string): SvelteListItem<T> | null {
+    return this.items.find((i) => i.content.id === id) || null
+  }
+
   setElement(e: HTMLElement): void {
     this.set('e', e)
     this.focusListener = (event: FocusEvent) => {
@@ -223,7 +257,11 @@ interface ID {
   id: string
 }
 
-export class SvelteListItem<T extends ID>
+export interface Content extends ID {
+  destroy(): void
+}
+
+export class SvelteListItem<T extends Content>
   extends SvelteReactiveComponent<SvelteListItemProps<T>>
   implements ListItem<T>
 {
@@ -268,5 +306,13 @@ export class SvelteListItem<T extends ID>
       }
       e.focus()
     }
+  }
+
+  focused(): boolean {
+    return document.activeElement?.id === this.id
+  }
+
+  destroy(): void {
+    this.content.destroy()
   }
 }

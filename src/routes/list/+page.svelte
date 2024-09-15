@@ -5,12 +5,13 @@
   import BasicListItemUi from './components/BasicListItemUI.svelte'
   import { setContext } from 'svelte'
 
-  let items: SvelteListItem<any>[] = [...new Array(20)].map((_, i) => {
+  let items: SvelteListItem<any>[] = [...new Array(200)].map((_, i) => {
     const id = i + ''
     return new SvelteListItem(id, new ItemImpl(id, `Item ${id}`), { component: BasicListItemUi })
   })
 
   let list = new SvelteList(items)
+  let i: number
 
   const renderSelection = (selection: Record<string, SvelteListItem<any>>) => {
     return Object.values(selection)
@@ -21,10 +22,20 @@
   }
 </script>
 
-<div class="p-10">
-  <div class="text-xl">Selected: {renderSelection($list.selection)}</div>
+<div class="page">
+  <div class="">Selected: {renderSelection($list.selection)}</div>
+  <button
+    disabled={!i}
+    on:click={() => list.select(list.items[i], { scrollIntoView: true, focus: true })}
+    >Select</button
+  >
+  <input type="number" bind:value={i} />
   <SvelteListUI {list} />
 </div>
 
 <style>
+  .page {
+    height: 100vh;
+    padding: 16px;
+  }
 </style>
