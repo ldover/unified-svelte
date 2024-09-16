@@ -58,7 +58,7 @@
     } else if (e.key == 'ArrowDown' && !metaKeys) {
       list.down()
     } else if (e.key == 'a' && e.metaKey) {
-      list.setSelection(ListSelection.create([ListSelection.range(0, list.items.length - 0)]))
+      list.setSelection(ListSelection.create([ListSelection.range(0, list.items.length - 1)]))
     }
   }
 </script>

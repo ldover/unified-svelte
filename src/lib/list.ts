@@ -33,6 +33,10 @@ export class ListSelection {
       if (ranges.length) {
         mainIndex = ranges.length - 1
       }
+    } else {
+      if (mainIndex >= ranges.length || mainIndex < 0 || (ranges.length == 0 && mainIndex == 0)) {
+        throw new Error('mainIndex lies outside of ranges')
+      }
     }
 
     this.mainIndex = mainIndex != undefined ? mainIndex : null
@@ -86,12 +90,29 @@ export class ListSelection {
 
     const range = this.ranges[rangeIndex]
 
+    // Remove range if empty 
     if (range.empty()) {
       if (this.ranges.length > 1) {
-        // Remove range if empty and move mainIndex to the closest range
-        const mainIndex = 0
+        // Since there are multiple ranges, set mainIndex to the closest range
+        let mainRange: SelectionRange
+        const rangeBefore: SelectionRange | undefined = this.ranges[rangeIndex - 1] 
+        const rangeAfter: SelectionRange | undefined = this.ranges[rangeIndex + 1]
+        if (rangeBefore && rangeAfter) {
+          if (rangeBefore.distanceTo(range) < rangeAfter.distanceTo(range)) {
+            mainRange = rangeBefore
+          } else {
+            mainRange = rangeAfter
+          }
+        } else if (rangeBefore) {
+          mainRange = rangeBefore
+        } else if (rangeAfter) {
+          mainRange = rangeAfter
+        }
+
+        const ranges = this.ranges.slice(0, rangeIndex).concat(this.ranges.slice(rangeIndex + 1))
+        const mainIndex = ranges.findIndex(r => r === mainRange)
         return ListSelection.create(
-          this.ranges.slice(0, rangeIndex).concat(this.ranges.slice(rangeIndex + 1)),
+          ranges,
           mainIndex
         )
       } else {
@@ -114,12 +135,15 @@ export class ListSelection {
         const range2 = ListSelection.range(index + 1, i1)
 
         ranges.splice(rangeIndex, 1, range1, range2)
-        const mainIndex = ranges.findIndex((r) => r === this.main)
+        let mainIndex = ranges.findIndex((r) => r === this.main)
+        if (mainIndex == -1) {   // If main range was just removed
+          mainIndex = rangeIndex // Set to first split range
+        }
 
         return ListSelection.create(ranges, mainIndex)
       } else {
         // Shorten the range
-        let newRange
+        let newRange: SelectionRange
         if (range.anchor < range.head) {
           if (index === range.anchor) {
             newRange = ListSelection.range(range.anchor + 1, range.head)
@@ -194,7 +218,6 @@ export class ListSelection {
     )
     if (overlappingIndices.size) {
       ranges = ranges.filter((_, i) => !overlappingIndices.has(i))
-      console.log('remove overlapping', overlappingIndices)
     }
 
     return ranges
@@ -221,7 +244,6 @@ export class ListSelection {
     if (touchingIndices.length) {
       // Touching indices can only be around our range
       console.assert(touchingIndices.length <= 2)
-      console.log('remove touching', touchingIndices)
 
       const newRange = mergeRanges(range, ...touchingIndices.map((i) => ranges[i]))
 
@@ -300,6 +322,22 @@ export class SelectionRange {
 
   length(): number {
     return Math.abs(this.anchor - this.head)
+  }
+
+  /**
+   * Calculate distance between ranges: touching ranges are 0 distance apart
+   * @param range 
+   * @returns 
+   */
+  distanceTo(range: SelectionRange): number {
+    if (this.overlaps(range)) {
+      return -1
+    }
+
+    const [r1, r2] = sortRanges([this, range])
+    let [i0, i1] = r1.indices()
+    let [j0, j1] = r2.indices()
+    return j0 - i1 - 1
   }
 
   /**
