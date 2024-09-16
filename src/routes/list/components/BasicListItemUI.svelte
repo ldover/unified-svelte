@@ -1,13 +1,13 @@
 <script lang="ts">
   import type { Item } from './item.js'
-  import type { SvelteList, SvelteListItem } from '$lib/list.js'
+  import { ListSelection, type SvelteList, type SvelteListItem } from '$lib/list.js'
   import { getContext } from 'svelte'
 
   export let item: SvelteListItem<Item>
 
   const list: SvelteList<any> = getContext('list')
 
-  $: selected = list.selection[item.id] !== undefined
+  $: selected = list.selection.contains(list.getIndex(item))
   $: focused = list.focused
     ? Object.values(list.selection).length > 1
       ? selected
@@ -15,16 +15,29 @@
     : false
 
   function handleSelect(e: MouseEvent) {
+    let newSelection: ListSelection | null = null
+    let itemIndex = list.getIndex(item)
     if (e.metaKey) {
-      if (!list.selection[item.id]) {
-        list.addSelection(item)
+      if (!list.selection.contains(itemIndex)) {
+        newSelection = list.selection.addRange(ListSelection.single(itemIndex))
       } else {
-        list.removeSelection(item)
+        newSelection = list.selection.splitRange(itemIndex)
       }
     } else if (e.shiftKey) {
-      list.extendSelection(item)
+      if (list.selection.main) {
+        newSelection = list.selection.replaceRange(
+          list.selection.main.extend(itemIndex),
+          list.selection.mainIndex!
+        )
+      } else {
+        newSelection = ListSelection.create([ListSelection.range(0, itemIndex)])
+      }
     } else {
-      list.select(item)
+      newSelection = ListSelection.create([ListSelection.single(itemIndex)])
+    }
+
+    if (newSelection) {
+      list.setSelection(newSelection)
     }
   }
 
@@ -35,13 +48,17 @@
 
     if (e.key === 'Backspace' && e.metaKey) {
       // Delete item on CMD+backspace
-      list.remove(item)
+      if (list.selection.isMultiple()) {
+        list.removeFrom(list.selection)
+      } else {
+        list.remove(item)
+      }
     } else if (e.key == 'ArrowUp' && !metaKeys) {
       list.up()
     } else if (e.key == 'ArrowDown' && !metaKeys) {
       list.down()
     } else if (e.key == 'a' && e.metaKey) {
-      list.selectAll()
+      list.setSelection(ListSelection.create([ListSelection.range(0, list.items.length - 0)]))
     }
   }
 </script>

@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { SvelteList, SvelteListItem } from '$lib/list.js'
+  import { ListSelection, SvelteList, SvelteListItem } from '$lib/list.js'
   import { ItemImpl } from './components/item.js'
   import SvelteListUI from '$lib/SvelteListUI.svelte'
   import BasicListItemUi from './components/BasicListItemUI.svelte'
-  import { setContext } from 'svelte'
 
   let items: SvelteListItem<any>[] = [...new Array(200)].map((_, i) => {
     const id = i + ''
@@ -13,10 +12,10 @@
   let list = new SvelteList(items)
   let i: number
 
-  const renderSelection = (selection: Record<string, SvelteListItem<any>>) => {
-    return Object.values(selection)
+  const renderSelection = (selection: ListSelection) => {
+    return Object.values(selection.ranges)
       .map((item) => {
-        return item.id
+        return `(${[item.anchor, item.head]})`
       })
       .join(', ')
   }
@@ -24,16 +23,25 @@
 
 <div class="page">
   <div class="">Selected: {renderSelection($list.selection)}</div>
+  <div class="">Main: {$list.selection.mainIndex}</div>
   <button
     disabled={!i}
-    on:click={() => list.select(list.items[i], { scrollIntoView: true, focus: true })}
-    >Select</button
+    on:click={() =>
+      list.setSelection(ListSelection.create([ListSelection.single(i)]), {
+        scrollIntoView: true,
+        focus: true
+      })}>Select</button
   >
   <input type="number" bind:value={i} />
-  <SvelteListUI {list} />
+  <div class="list-container">
+    <SvelteListUI {list} />
+  </div>
 </div>
 
 <style>
+  .list-container {
+    height: 80%;
+  }
   .page {
     height: 100vh;
     padding: 16px;
