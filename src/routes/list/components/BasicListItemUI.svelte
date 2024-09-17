@@ -7,12 +7,13 @@
 
   const list: SvelteList<any> = getContext('list')
 
-  $: selected = list.selection.contains(list.getIndex(item))
-  $: focused = list.focused
-    ? Object.values(list.selection).length > 1
-      ? selected
-      : list.focused == item
-    : false
+  export let selected: boolean
+  export let nextSelected: boolean
+  export let prevSelected: boolean
+  export let focused: boolean
+  export let focusedGroup: boolean
+  export let first: boolean
+  export let last: boolean
 
   function handleSelect(e: MouseEvent) {
     let newSelection: ListSelection | null = null
@@ -68,7 +69,9 @@
   on:keydown={handleKeydown}
   on:click={handleSelect}
   class:selected
-  class:focused
+  class:prevSelected
+  class:nextSelected
+  class:focused={focused || focusedGroup}
 >
   {$item.content.name}
 </button>
@@ -76,14 +79,36 @@
 <style>
   button {
     border: none;
-    margin: 2px;
+    padding: 2px;
+    background-color: white;
+
+    border-top: 1px solid transparent;
   }
+
+  button:not(.selected) {
+    border-top: 1px solid rgb(205, 205, 205);
+  }
+
+  button:not(.prevSelected) {
+    border-top: 1px solid rgb(205, 205, 205);
+  }
+
   .selected {
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.2);
     color: white;
+    border-radius: 4px;
   }
 
   .selected.focused {
     border-left: 6px solid green;
+  }
+
+  button.prevSelected {
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+  }
+  button.nextSelected {
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
   }
 </style>

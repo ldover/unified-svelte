@@ -90,12 +90,12 @@ export class ListSelection {
 
     const range = this.ranges[rangeIndex]
 
-    // Remove range if empty 
+    // Remove range if empty
     if (range.empty()) {
       if (this.ranges.length > 1) {
         // Since there are multiple ranges, set mainIndex to the closest range
         let mainRange: SelectionRange
-        const rangeBefore: SelectionRange | undefined = this.ranges[rangeIndex - 1] 
+        const rangeBefore: SelectionRange | undefined = this.ranges[rangeIndex - 1]
         const rangeAfter: SelectionRange | undefined = this.ranges[rangeIndex + 1]
         if (rangeBefore && rangeAfter) {
           if (rangeBefore.distanceTo(range) < rangeAfter.distanceTo(range)) {
@@ -110,11 +110,8 @@ export class ListSelection {
         }
 
         const ranges = this.ranges.slice(0, rangeIndex).concat(this.ranges.slice(rangeIndex + 1))
-        const mainIndex = ranges.findIndex(r => r === mainRange)
-        return ListSelection.create(
-          ranges,
-          mainIndex
-        )
+        const mainIndex = ranges.findIndex((r) => r === mainRange)
+        return ListSelection.create(ranges, mainIndex)
       } else {
         return ListSelection.empty()
       }
@@ -136,7 +133,8 @@ export class ListSelection {
 
         ranges.splice(rangeIndex, 1, range1, range2)
         let mainIndex = ranges.findIndex((r) => r === this.main)
-        if (mainIndex == -1) {   // If main range was just removed
+        if (mainIndex == -1) {
+          // If main range was just removed
           mainIndex = rangeIndex // Set to first split range
         }
 
@@ -326,8 +324,8 @@ export class SelectionRange {
 
   /**
    * Calculate distance between ranges: touching ranges are 0 distance apart
-   * @param range 
-   * @returns 
+   * @param range
+   * @returns
    */
   distanceTo(range: SelectionRange): number {
     if (this.overlaps(range)) {
@@ -335,8 +333,8 @@ export class SelectionRange {
     }
 
     const [r1, r2] = sortRanges([this, range])
-    let [i0, i1] = r1.indices()
-    let [j0, j1] = r2.indices()
+    const [i0, i1] = r1.indices()
+    const [j0, j1] = r2.indices()
     return j0 - i1 - 1
   }
 
@@ -388,8 +386,9 @@ export interface List<N extends ListItem<T>, T extends Content> extends ListProp
   insert(item: N, i: number): void
   /** Removes items from the list */
   remove(item: N): void
-  /** Removes items from specified range: from (inclusive), to (exclusive) */
+  /** Removes items from given ListSelection */
   removeFrom(selection: ListSelection): void
+  /** Removes items from specified range: from (inclusive), to (exclusive) */
   removeFrom(from: number, to: number): void
   /** Select item or clear selection */
   setSelection(selection: ListSelection, options?: SelectOptions): void
@@ -418,17 +417,22 @@ export class SvelteList<T extends Content>
   private focusListener?: (event: FocusEvent) => void
   private blurListener?: (event: FocusEvent) => void
 
+  private _ids = new Set<string>()
+
   constructor(items: SvelteListItem<T>[]) {
     super({ selection: ListSelection.create([]), items, focused: null, e: null })
   }
 
   setItems(items: SvelteListItem<T>[]): void {
+    this._addId(...items)
     this.items.forEach((item) => item.destroy())
+    this._ids.clear()
     this.set('selection', ListSelection.empty()) // Reset selection when reseting the list
     this.set('items', items)
   }
 
   add(item: SvelteListItem<T>): void {
+    this._addId(item)
     const newItems = [...this.items, item]
     this.set('items', newItems)
     // todo: update selection, for now reset
@@ -436,6 +440,7 @@ export class SvelteList<T extends Content>
   }
 
   insert(item: SvelteListItem<T>, i: number): void {
+    this._addId(item)
     if (i < 0 || i > this.items.length) {
       throw new Error('Index out of bounds')
     }
@@ -450,6 +455,7 @@ export class SvelteList<T extends Content>
     if (index === -1) {
       throw new Error('Item not found')
     }
+    this._removeId(item)
     this.items[index].destroy()
     const items = remove(this.items, index)
     this.set('items', items)
@@ -461,7 +467,6 @@ export class SvelteList<T extends Content>
   removeFrom(selection: ListSelection): void
   removeFrom(from: number, to: number): void
   removeFrom(from: number | ListSelection, to?: number): void {
-    let items: SvelteListItem<T>[]
     let selection: ListSelection
     if (typeof from == 'number') {
       selection = ListSelection.create([ListSelection.range(from, to!)])
@@ -469,11 +474,13 @@ export class SvelteList<T extends Content>
       selection = from
     }
 
-    items = removeRanges(
+    const [items, removed] = removeRanges(
       this.items,
       selection.ranges.map((r) => r.indices())
     )
 
+    this._removeId(...removed)
+    removed.forEach((item) => item.destroy())
     this.set('selection', ListSelection.empty())
     this.set('items', items)
   }
@@ -581,6 +588,22 @@ export class SvelteList<T extends Content>
   get focused(): SvelteListItem<T> | null {
     return this.getProp('focused')
   }
+
+  private _addId(...items: SvelteListItem<T>[]) {
+    items.forEach((item) => {
+      if (this._ids.has(item.id)) {
+        throw new Error(
+          `Duplicate identifier detected: '${item.id}'. Each item must have a unique ID.`
+        )
+      }
+    })
+  }
+
+  private _removeId(...items: SvelteListItem<T>[]) {
+    items.forEach((item) => {
+      this._ids.delete(item.id)
+    })
+  }
 }
 
 interface ListItemOptions {
@@ -674,18 +697,24 @@ const mergeRanges = (...ranges: SelectionRange[]): SelectionRange => {
  * @param ranges - Sorted ranges
  * @returns
  */
-function removeRanges<T>(array: T[], ranges: [number, number][]): T[] {
+function removeRanges<T>(array: T[], ranges: [number, number][]): [T[], T[]] {
   let result: T[] = []
+  let removedItems: T[] = []
   let start = 0
 
-  // todo: test this logic that it indeed removes the
   ranges.forEach(([begin, end]) => {
+    // Add the elements before the current range to the result
     result = result.concat(array.slice(start, begin))
+
+    // Add the elements in the current range to the removedItems
+    removedItems = removedItems.concat(array.slice(begin, end + 1))
+
+    // Update the start position for the next iteration
     start = end + 1
   })
 
   // Add the remaining elements after the last range
   result = result.concat(array.slice(start))
 
-  return result
+  return [result, removedItems]
 }

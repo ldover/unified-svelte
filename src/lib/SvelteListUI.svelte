@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { SvelteList } from '$lib/list.js'
+  import type { ListSelection, SvelteList } from '$lib/list.js'
   import SvelteListItemUI from '$lib/SvelteListItemUI.svelte'
   import { onMount, setContext } from 'svelte'
 
@@ -11,11 +11,30 @@
   onMount(() => {
     list.setElement(e)
   })
+
+  const fromSelection = (selection: ListSelection) => {
+    const indices = Array.from({ length: list.items.length }, (_, index) => index)
+    return selection.ranges
+      .map((r) => indices.slice(r.indices()[0], r.indices()[1] + 1))
+      .reduce((arr, next) => [...arr, ...next], [])
+  }
+
+  let selected: Set<number>
+  $: selected = new Set(fromSelection($list.selection))
 </script>
 
 <div bind:this={e}>
-  {#each $list.items as item}
-    <SvelteListItemUI {item} />
+  {#each $list.items as item, i (item.id)}
+    <SvelteListItemUI
+      {item}
+      selected={selected.has(i)}
+      nextSelected={selected.has(i + 1)}
+      prevSelected={selected.has(i - 1)}
+      focused={$list.focused == item}
+      focusedGroup={list.focused && selected.has(i)}
+      first={i == 0}
+      last={i == $list.items.length - 1}
+    />
   {/each}
 </div>
 
