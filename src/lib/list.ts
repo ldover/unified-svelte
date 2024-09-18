@@ -551,13 +551,15 @@ export class SvelteList<T extends Content>
     this.set('e', e)
     this.focusListener = (event: FocusEvent) => {
       const id = (event.target as HTMLElement).id
-      const item = this.getItem(id)
-      if (item) {
-        this.setFocused(item)
-      } else {
-        console.error(
-          `Failed to find the HTMLElement corresponding to the focused list item with ID: '${id}'. Ensure each list item element has a unique 'id' attribute matching its data representation.`
-        )
+      if (id) {
+        const item = this.getItem(id)
+        if (item) {
+          this.setFocused(item)
+        } else {
+          console.error(
+            `Failed to find the HTMLElement corresponding to the focused list item with ID: '${id}'. Ensure each list item element has a unique 'id' attribute matching its data representation.`
+          )
+        }
       }
     }
 

@@ -4,6 +4,8 @@
   import { onMount, setContext } from 'svelte'
 
   export let list: SvelteList<any>
+  export let classes: string[] = []
+  export let style: string = ''
 
   setContext('list', list)
 
@@ -23,7 +25,10 @@
   $: selected = new Set(fromSelection($list.selection))
 </script>
 
-<div bind:this={e}>
+<div bind:this={e}
+     class={classes.join(' ')}
+     style={style}
+>
   {#each $list.items as item, i (item.id)}
     <SvelteListItemUI
       {item}
@@ -31,7 +36,7 @@
       nextSelected={selected.has(i + 1)}
       prevSelected={selected.has(i - 1)}
       focused={$list.focused == item}
-      focusedGroup={list.focused && selected.has(i)}
+      focusedGroup={list.focused ? selected.has(i) : false}
       first={i == 0}
       last={i == $list.items.length - 1}
     />
