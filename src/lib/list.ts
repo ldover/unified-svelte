@@ -197,12 +197,26 @@ export class ListSelection {
     return null
   }
 
+  /**
+   * Returns true if there are multiple selection ranges in the current selection
+   */
   isMultiple(): boolean {
     if (this.ranges.length == 1) {
       return !this.ranges[0].empty()
     }
 
     return this.ranges.length >= 2
+  }
+
+  eq(selection: ListSelection): boolean {
+    return this.ranges.length == selection.ranges.length && this.ranges.every((r, i) => r.eq(selection.ranges[i]))
+  }
+
+  /**
+   * Returns the number of items in the selection
+  */
+  size(): number {
+    return this.ranges.reduce((total, next) => next.length() + total, 0)
   }
 
   private _removeOverlappingRanges(
@@ -319,7 +333,7 @@ export class SelectionRange {
   }
 
   length(): number {
-    return Math.abs(this.anchor - this.head)
+    return Math.abs(this.anchor - this.head) + 1
   }
 
   /**
@@ -513,9 +527,7 @@ export class SvelteList<T extends Content>
     if (this.focused) {
       const i = this.items.findIndex((item) => item.id == this.focused!.id)
       if (i > 0) {
-        const item = this.items[i - 1]
-        this.setSelection(ListSelection.create([ListSelection.single(i - 1)]))
-        item.focus()
+        this.setSelection(ListSelection.create([ListSelection.single(i - 1)]), { focus: true })
       }
     }
   }
@@ -524,9 +536,7 @@ export class SvelteList<T extends Content>
     if (this.focused) {
       const i = this.items.findIndex((item) => item.id === this.focused!.id)
       if (i < this.items.length - 1) {
-        const item = this.items[i + 1]
-        this.setSelection(ListSelection.create([ListSelection.single(i + 1)]))
-        item.focus()
+        this.setSelection(ListSelection.create([ListSelection.single(i + 1)]), { focus: true })
       }
     }
   }
