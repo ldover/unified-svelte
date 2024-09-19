@@ -154,11 +154,7 @@ describe('ListSelection', () => {
 
   it('merges touching range with main range', () => {
     let sel5 = ListSelection.create(
-      [
-        ListSelection.range(3, 5),
-        ListSelection.range(10, 5),
-        ListSelection.range(10, 15)
-      ],
+      [ListSelection.range(3, 5), ListSelection.range(10, 5), ListSelection.range(10, 15)],
       1
     )
     expect(formatSelection(sel5)).toBe('15/3')

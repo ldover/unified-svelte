@@ -261,12 +261,12 @@ export class SelectionRange {
 
   extend(to: number): SelectionRange {
     if (to < this.anchor) {
-        // Extend downwards, possibly inverting the selection
-        return SelectionRange.create(to, this.anchor + 1, true);
+      // Extend downwards, possibly inverting the selection
+      return SelectionRange.create(to, this.anchor + 1, true)
     } else {
-        // Extend upwards or continue in the same direction
-        const from = this.inverted ? this.anchor - 1 : this.from;
-        return SelectionRange.create(from, to + 1, false);
+      // Extend upwards or continue in the same direction
+      const from = this.inverted ? this.anchor - 1 : this.from
+      return SelectionRange.create(from, to + 1, false)
     }
   }
 
