@@ -18,14 +18,14 @@
   function handleSelect(e: MouseEvent) {
     let newSelection: ListSelection | null = null
     let itemIndex = list.getIndex(item)
-    if (e.metaKey) {
+    if (e.metaKey && list.selection) {
       if (!list.selection.contains(itemIndex)) {
-        newSelection = list.selection.addRange(ListSelection.single(itemIndex))
+        newSelection = list.selection.addRange(ListSelection.range(itemIndex, itemIndex + 1))
       } else {
         newSelection = list.selection.splitRange(itemIndex)
       }
     } else if (e.shiftKey) {
-      if (list.selection.main) {
+      if (list.selection) {
         newSelection = list.selection.replaceRange(
           list.selection.main.extend(itemIndex),
           list.selection.mainIndex!
@@ -34,7 +34,7 @@
         newSelection = ListSelection.create([ListSelection.range(0, itemIndex)])
       }
     } else {
-      newSelection = ListSelection.create([ListSelection.single(itemIndex)])
+      newSelection = ListSelection.single(itemIndex)
     }
 
     if (newSelection) {
@@ -49,7 +49,7 @@
 
     if (e.key === 'Backspace' && e.metaKey) {
       // Delete item on CMD+backspace
-      if (list.selection.isMultiple()) {
+      if (list.selection && list.selection.isMultiple()) {
         list.removeFrom(list.selection)
       } else {
         list.remove(item)

@@ -9,7 +9,7 @@ interface ListItemProps<T extends Content> {
 
 interface ListProps<N extends ListItem<T>, T extends Content> {
   items: N[]
-  selection: ListSelection
+  selection: ListSelection | null
 }
 
 interface SvelteListProps<T extends Content> extends ListProps<SvelteListItem<T>, T> {
@@ -23,75 +23,39 @@ interface SelectOptions {
 }
 
 export class ListSelection {
-  public readonly mainIndex: number | null
-
-  constructor(
+  private constructor(
     public ranges: readonly SelectionRange[],
-    mainIndex?: number
-  ) {
-    if (mainIndex == undefined) {
-      if (ranges.length) {
-        mainIndex = ranges.length - 1
-      }
-    } else {
-      if (mainIndex >= ranges.length || mainIndex < 0 || (ranges.length == 0 && mainIndex == 0)) {
-        throw new Error('mainIndex lies outside of ranges')
-      }
-    }
-
-    this.mainIndex = mainIndex != undefined ? mainIndex : null
-  }
+    public readonly mainIndex: number
+  ) {}
 
   /**
   Extend this selection with an extra range.
   */
-  addRange(range: SelectionRange): ListSelection {
-    let ranges = [...this.ranges]
-    // Determine where to insert so the ranges remain sorted
-    const i = this.ranges.findIndex((r) => range.less(r))
-    if (i == -1) {
-      ranges.push(range)
-    } else {
-      ranges.splice(i, 0, range)
-    }
-
-    let mainIndex: number
-
-    ranges = this._removeOverlappingRanges(range, ranges)
-    ;[ranges, mainIndex] = this._removeTouchingRanges(range, ranges)
-    return new ListSelection(ranges, mainIndex)
+  addRange(range: SelectionRange, main: boolean = true): ListSelection {
+    return ListSelection.create([range, ...this.ranges], main ? 0 : this.mainIndex + 1)
   }
 
   /**
   Replace a given range with another range, and then normalize the
   selection to merge and sort ranges if necessary.
   */
-  replaceRange(range: SelectionRange, which: number): ListSelection {
-    let ranges = [...this.ranges]
-
-    ranges.splice(which, 1, range)
-
-    // Sort after changing the range
-    ranges = sortRanges(ranges)
-
-    let mainIndex: number
-
-    ranges = this._removeOverlappingRanges(range, ranges)
-    ;[ranges, mainIndex] = this._removeTouchingRanges(range, ranges)
-    return new ListSelection(ranges, mainIndex)
+  replaceRange(range: SelectionRange, which: number = this.mainIndex): ListSelection {
+    const ranges = this.ranges.slice()
+    ranges[which] = range
+    return ListSelection.create(ranges, this.mainIndex)
   }
 
   /**
    * Remove this index from the selection range, creating two ranges if the position is in the middle
    * of the range
    */
-  splitRange(index: number): ListSelection {
+  splitRange(index: number): ListSelection | null {
     const rangeIndex = this.ranges.findIndex((range) => range.contains(index))
 
     const range = this.ranges[rangeIndex]
 
     // Remove range if empty
-    if (range.empty()) {
+    if (range.single) {
       if (this.ranges.length > 1) {
         // Since there are multiple ranges, set mainIndex to the closest range
         let mainRange: SelectionRange
@@ -113,22 +77,21 @@ export class ListSelection {
         const mainIndex = ranges.findIndex((r) => r === mainRange)
         return ListSelection.create(ranges, mainIndex)
       } else {
-        return ListSelection.empty()
+        return null
       }
     } else {
       // Split this range in two if index is in the middle of the selecton
       // or shorten the range if index is at the edge of selection
-      let [i0, i1] = [range.anchor, range.head]
-      if (i0 > i1) {
-        ;[i0, i1] = [i1, i0]
-      }
+      let [i0, i1] = [range.from, range.to]
 
-      const atTheEdge = index === range.anchor || index === range.head
+      // For range (0, 2), 0th and 1st elements are at the edge
+      const atTheEdge = index === i0 || index + 1 === i1
       const ranges = [...this.ranges]
 
       if (!atTheEdge) {
         // Split into two separate ranges
-        const range1 = ListSelection.range(i0, index - 1)
+        // EX: for range (0, 3) and index 1, create (0, 1) and (2, 3) ranges
+        const range1 = ListSelection.range(i0, index)
         const range2 = ListSelection.range(index + 1, i1)
 
         ranges.splice(rangeIndex, 1, range1, range2)
@@ -176,25 +139,18 @@ export class ListSelection {
   }
 
   /**
-   * Returns true if there is no selection range
-   */
-  isNone(): boolean {
-    return this.ranges.length == 0
-  }
-
-  /**
    * Returns true if there is a single empty selection range
    */
   isSingle(): boolean {
-    return this.ranges.length == 1 && this.ranges[0].empty()
+    return this.ranges.length == 1 && this.ranges[0].single
   }
 
-  get main(): SelectionRange | null {
-    if (this.mainIndex != null) {
-      return this.ranges[this.mainIndex]
-    }
+  get main(): SelectionRange {
+    return this.ranges[this.mainIndex]
+  }
 
-    return null
+  get max(): number {
+    return this.ranges.slice(-1)[0].to
   }
 
   /**
@@ -202,106 +158,143 @@ export class ListSelection {
    */
   isMultiple(): boolean {
     if (this.ranges.length == 1) {
-      return !this.ranges[0].empty()
+      return !this.ranges[0].single
     }
 
     return this.ranges.length >= 2
   }
 
   eq(selection: ListSelection): boolean {
-    return this.ranges.length == selection.ranges.length && this.ranges.every((r, i) => r.eq(selection.ranges[i]))
+    return (
+      this.ranges.length == selection.ranges.length &&
+      this.ranges.every((r, i) => r.eq(selection.ranges[i]))
+    )
   }
 
   /**
    * Returns the number of items in the selection
-  */
-  size(): number {
-    return this.ranges.reduce((total, next) => next.length() + total, 0)
-  }
-
-  private _removeOverlappingRanges(
-    range: SelectionRange,
-    ranges: SelectionRange[]
-  ): SelectionRange[] {
-    const overlappingIndices: Set<number> = new Set(
-      ranges
-        .map((R, i) => (R != range && R.overlaps(range) ? i : null))
-        .filter((r) => r !== null) as number[]
-    )
-    if (overlappingIndices.size) {
-      ranges = ranges.filter((_, i) => !overlappingIndices.has(i))
-    }
-
-    return ranges
-  }
-
-  /**
-   * Removes the ranges that touch the given range;
-   * todo: maybe a general "merge touching" would be useful: consider creating new ListSelection and passing it touching or overlapping ranges: it should merge them, or throw error...
-   *
-   * @param range - given range
-   * @param ranges
-   * @returns
    */
-  private _removeTouchingRanges(
-    range: SelectionRange,
-    ranges: SelectionRange[]
-  ): [SelectionRange[], number] {
-    let rangeIndex = ranges.findIndex((r) => r.eq(range))
-    console.assert(rangeIndex != -1, 'Given range not found in ranges', { range, ranges })
-
-    const touchingIndices: number[] = ranges
-      .map((R, i) => (R != range && R.touches(range) ? i : null))
-      .filter((r) => r !== null) as number[]
-    if (touchingIndices.length) {
-      // Touching indices can only be around our range
-      console.assert(touchingIndices.length <= 2)
-
-      const newRange = mergeRanges(range, ...touchingIndices.map((i) => ranges[i]))
-
-      ranges[rangeIndex] = newRange
-      ranges = ranges.filter((_, i) => !touchingIndices.includes(i))
-      rangeIndex = ranges.findIndex((r) => r == newRange)
-    }
-
-    return [ranges, rangeIndex]
+  size(): number {
+    return this.ranges.reduce((total, next) => next.length + total, 0)
   }
 
-  static create(ranges: readonly SelectionRange[], mainIndex?: number): ListSelection {
+  static create(ranges: SelectionRange[], mainIndex: number = ranges.length - 1): ListSelection {
+    if (!ranges.length) {
+      throw new Error('Ranges are empty')
+    }
+
+    // Here see if ranges need to be normalized
+    let pos = 0
+    for (const range of ranges) {
+      if (pos > range.from) {
+        return this.normalize(ranges, mainIndex)
+      }
+      pos = range.to
+    }
+
     return new ListSelection(ranges, mainIndex)
   }
 
-  static empty(): ListSelection {
-    return new ListSelection([])
-  }
-
-  static single(index: number): SelectionRange {
-    return new SelectionRange(index, index)
+  static single(index: number): ListSelection {
+    return new ListSelection([SelectionRange.create(index, index + 1)], 0)
   }
 
   /**
   Create a selection range.
   */
   static range(anchor: number, head: number): SelectionRange {
-    return new SelectionRange(anchor, head)
+    const inverted = head < anchor
+    return SelectionRange.create(inverted ? head : anchor, inverted ? anchor : head, inverted)
+  }
+
+  // @internal
+  static normalize(ranges: SelectionRange[], mainIndex: number = 0): ListSelection {
+    // Sort ranges, then merge overlapping and touching ranges: (0, 1) and (1, 2) get merged to (0, 2)
+    // Exceptions: ranges that overlap main range are removed, ranges that touch main range are merged,
+    // direction of the main range is preserved
+    let main = ranges[mainIndex]
+    sortRanges(ranges)
+    mainIndex = ranges.indexOf(main)
+    for (let i = 1; i < ranges.length; i++) {
+      let range = ranges[i],
+        prev = ranges[i - 1],
+        main = ranges[mainIndex]
+      if (range.from <= prev.to) {
+        // If it overlaps (<) or touches (==) previous range
+        const keepMain = (range == main || prev == main) && range.from < prev.to // Overwrite with main range if overlaps
+        let from = keepMain ? main.from : prev.from
+        let to = keepMain ? main.to : Math.max(range.to, prev.to)
+        if (i <= mainIndex) mainIndex--
+        ranges.splice(
+          --i,
+          2,
+          main.anchor > main.head ? ListSelection.range(to, from) : ListSelection.range(from, to)
+        )
+      }
+    }
+    return new ListSelection(ranges, mainIndex)
   }
 }
 
 export class SelectionRange {
-  anchor: number
-  head: number
+  private constructor(
+    public readonly from: number,
+    public readonly to: number,
+    public readonly inverted: boolean = false
+  ) {}
 
-  constructor(anchor: number, head: number) {
-    this.anchor = anchor
-    this.head = head
+  get single(): boolean {
+    return this.length == 1
   }
 
-  empty(): boolean {
-    return this.anchor == this.head
+  get anchor(): number {
+    return this.inverted ? this.to : this.from
   }
+
+  get head(): number {
+    return !this.inverted ? this.to : this.from
+  }
+
+  get length(): number {
+    return Math.abs(this.anchor - this.head)
+  }
+
+  // extend(to: number): SelectionRange {
+  //   if (to < this.anchor) {
+  //     // When extending to a position before the anchor
+  //     return SelectionRange.create(to, this.to, true);
+  //   } else {
+  //     // When extending to a position after or at the anchor
+  //     return SelectionRange.create(this.from, to + 1, false);
+  //   }
+  // }
+
+  // extend(to: number): SelectionRange {
+  //   if (to < this.anchor) {
+  //     // Extend towards the anchor (possibly inverting)
+  //     return SelectionRange.create(to, this.to, true);
+  //   } else {
+  //     // Extend away from the anchor
+  //     const from = this.inverted ? this.anchor - 1 : this.from;
+  //     return SelectionRange.create(from, to + 1, false);
+  //   }
+  // }
 
   extend(to: number): SelectionRange {
-    return new SelectionRange(this.anchor, to)
+    // todo: check this... — might have to shift from, to when the selection range inverts
+    if (!this.inverted && to < this.anchor) {
+      // Invert down (5, 6), extend down to 4 -> (4, 6)
+      return SelectionRange.create(to, this.anchor + 1, true)
+    } else if (this.inverted && to >= this.anchor) {
+      // Invert up (5, 6)*, extend up to 7 -> (5, 8)
+      return SelectionRange.create(this.anchor - 1, to + 1, false)
+    } else if (this.inverted) {
+      // Same direction down (5, 6)*, extend down to 2 -> (2, 6)
+      return SelectionRange.create(to, this.to, true)
+    } else if (!this.inverted) {
+      // Same direction up (5, 6), extend up to 7 -> (5, 8)
+      return SelectionRange.create(this.from, to + 1, false)
+    }
   }
 
   eq(other: SelectionRange): boolean {
@@ -310,36 +303,18 @@ export class SelectionRange {
 
   /**
    * Returns true if this selection range is less than other
-   * @param other
-   * @returns
    */
   less(other: SelectionRange): boolean {
-    const [i0, i1] = this.indices()
-    const [j0, j1] = other.indices()
-
-    if (i0 == j0) {
-      return i1 < j1
-    } else {
-      return i0 < j0
-    }
+    return this.from < other.from
   }
 
   contains(pos: number): boolean {
-    const [i0, i1] = this.indices()
-    if (i0 <= pos && pos <= i1) {
-      return true
-    }
-    return false
-  }
-
-  length(): number {
-    return Math.abs(this.anchor - this.head) + 1
+    const [i0, i1] = [this.from, this.to]
+    return i0 <= pos && pos < i1
   }
 
   /**
-   * Calculate distance between ranges: touching ranges are 0 distance apart
-   * @param range
-   * @returns
+   * Calculate distance between ranges: touching ranges are 0 distance apart: (0, 1), (1, 2) are touching
    */
   distanceTo(range: SelectionRange): number {
     if (this.overlaps(range)) {
@@ -349,45 +324,35 @@ export class SelectionRange {
     const [r1, r2] = sortRanges([this, range])
     const [i0, i1] = r1.indices()
     const [j0, j1] = r2.indices()
-    return j0 - i1 - 1
+    return j0 - i1
   }
 
   /**
-   * Returns true if the two ranges overlap
-   * @param range
-   * @returns
+   * Returns true if the two ranges overlap (1, 4) (4, 5)
    */
   overlaps(range: SelectionRange): boolean {
     const [r1, r2] = sortRanges([this, range])
     const [i0, i1] = r1.indices()
-    const [j0, j1] = r2.indices()
+    const [j0, _] = r2.indices()
 
-    if (i0 <= j0 && j0 <= i1) {
-      return true
-    }
-
-    return false
+    return i0 <= j0 && j0 < i1
   }
 
   touches(range: SelectionRange): boolean {
-    if (this.overlaps(range)) return false
-
-    // Sort them and check if they're adjacent
-    const [r1, r2] = sortRanges([this, range])
-    if (r1.indices()[1] == r2.indices()[0] - 1) {
-      return true
-    }
-
-    return false
+    return this.distanceTo(range) == 0
   }
 
-  /**
-   *
-   * @returns indices sorted
-   */
   indices(): [number, number] {
-    // Note: head can be less than anchor
-    return [this.head, this.anchor].sort((a, b) => a - b) as [number, number]
+    return [this.from, this.to]
+  }
+
+  // @internal
+  static create(from: number, to: number, inverted: boolean = false): SelectionRange {
+    if (from >= to) {
+      throw new RangeError('from and to have to span a valid range')
+    }
+
+    return new SelectionRange(from, to, inverted)
   }
 }
 
@@ -434,14 +399,14 @@ export class SvelteList<T extends Content>
   private _ids = new Set<string>()
 
   constructor(items: SvelteListItem<T>[]) {
-    super({ selection: ListSelection.create([]), items, focused: null, e: null })
+    super({ selection: null, items, focused: null, e: null })
   }
 
   setItems(items: SvelteListItem<T>[]): void {
     this._addId(...items)
     this.items.forEach((item) => item.destroy())
     this._ids.clear()
-    this.set('selection', ListSelection.empty()) // Reset selection when reseting the list
+    this.set('selection', null) // Reset selection when reseting the list
     this.set('items', items)
   }
 
@@ -450,7 +415,7 @@ export class SvelteList<T extends Content>
     const newItems = [...this.items, item]
     this.set('items', newItems)
     // todo: update selection, for now reset
-    this.setSelection(ListSelection.empty())
+    this.setSelection(null)
   }
 
   insert(item: SvelteListItem<T>, i: number): void {
@@ -459,7 +424,7 @@ export class SvelteList<T extends Content>
       throw new Error('Index out of bounds')
     }
     // todo: update selection, for now reset
-    this.setSelection(ListSelection.empty())
+    this.setSelection(null)
     const items = insert(this.items, item, i)
     this.set('items', items)
   }
@@ -475,7 +440,7 @@ export class SvelteList<T extends Content>
     this.set('items', items)
 
     // todo: update selection, for now reset
-    this.setSelection(ListSelection.empty())
+    this.setSelection(null)
   }
 
   removeFrom(selection: ListSelection): void
@@ -495,29 +460,31 @@ export class SvelteList<T extends Content>
 
     this._removeId(...removed)
     removed.forEach((item) => item.destroy())
-    this.set('selection', ListSelection.empty())
+    this.set('selection', null)
     this.set('items', items)
   }
 
-  setSelection(selection: ListSelection, options?: SelectOptions | undefined): void {
-    // Check that selection is valid
-    if (!selection.isNone() && selection.ranges.slice(-1)[0].indices()[1] > this.items.length - 1) {
-      throw new Error('Selection out of bounds')
-    }
-    this.set('selection', selection)
+  setSelection(selection: ListSelection | null, options?: SelectOptions | undefined): void {
+    if (selection == null) {
+      this.set('selection', selection)
+    } else {
+      // Check that selection is valid
+      checkSelection(selection, this.items)
+      this.set('selection', selection)
 
-    if (options && !selection.isNone()) {
-      if (selection.main) {
-        const item = this.items[selection.main.head]
+      if (options) {
+        if (selection.main) {
+          const item = this.items[selection.main.head]
 
-        const eItem = document.getElementById(item.id)
-        const e = this.getProp('e')
-        if (options?.scrollIntoView != false && e && eItem && !inView(e, eItem)) {
-          eItem.scrollIntoView({ behavior: 'instant', block: 'nearest' })
-        }
+          const eItem = document.getElementById(item.id)
+          const e = this.getProp('e')
+          if (options?.scrollIntoView != false && e && eItem && !inView(e, eItem)) {
+            eItem.scrollIntoView({ behavior: 'instant', block: 'nearest' })
+          }
 
-        if (options?.focus && !item.focused()) {
-          item.focus()
+          if (options?.focus && !item.focused()) {
+            item.focus()
+          }
         }
       }
     }
@@ -527,7 +494,7 @@ export class SvelteList<T extends Content>
     if (this.focused) {
       const i = this.items.findIndex((item) => item.id == this.focused!.id)
       if (i > 0) {
-        this.setSelection(ListSelection.create([ListSelection.single(i - 1)]), { focus: true })
+        this.setSelection(ListSelection.single(i - 1), { focus: true })
       }
     }
   }
@@ -536,13 +503,9 @@ export class SvelteList<T extends Content>
     if (this.focused) {
       const i = this.items.findIndex((item) => item.id === this.focused!.id)
       if (i < this.items.length - 1) {
-        this.setSelection(ListSelection.create([ListSelection.single(i + 1)]), { focus: true })
+        this.setSelection(ListSelection.single(i + 1), { focus: true })
       }
     }
-  }
-
-  setFocused(item: SvelteListItem<T> | null): void {
-    this.set('focused', item)
   }
 
   getItem(id: string): SvelteListItem<T> | null {
@@ -564,7 +527,7 @@ export class SvelteList<T extends Content>
       if (id) {
         const item = this.getItem(id)
         if (item) {
-          this.setFocused(item)
+          this.set('focused', item)
         } else {
           console.error(
             `Failed to find the HTMLElement corresponding to the focused list item with ID: '${id}'. Ensure each list item element has a unique 'id' attribute matching its data representation.`
@@ -574,7 +537,7 @@ export class SvelteList<T extends Content>
     }
 
     this.blurListener = () => {
-      this.setFocused(null)
+      this.set('focused', null)
     }
 
     e.addEventListener('focus', this.focusListener, true)
@@ -582,14 +545,18 @@ export class SvelteList<T extends Content>
   }
 
   destroy(): void {
-    const e = this.getProp('e')
+    const e = this.e
     if (e) {
       this.focusListener && e.removeEventListener('focus', this.focusListener, true)
       this.blurListener && e.removeEventListener('blur', this.blurListener, true)
     }
   }
 
-  get selection(): ListSelection {
+  get e(): HTMLElement | null {
+    return this.getProp('e')
+  }
+
+  get selection(): ListSelection | null {
     return this.getProp('selection')
   }
 
@@ -687,17 +654,7 @@ export class SvelteListItem<T extends Content>
   }
 }
 
-const sortRanges = (ranges: SelectionRange[]) =>
-  ranges.sort((a, b) => (a.eq(b) ? 0 : a.less(b) ? -1 : +1))
-
-const mergeRanges = (...ranges: SelectionRange[]): SelectionRange => {
-  const sortedRanges = sortRanges(ranges)
-
-  const i0 = sortedRanges[0].indices()[0]
-  const i1 = sortedRanges[sortedRanges.length - 1].indices()[1]
-
-  return ListSelection.range(i0, i1)
-}
+const sortRanges = (ranges: SelectionRange[]) => ranges.sort((a, b) => (a.less(b) ? -1 : 1))
 
 /**
  * Removes given ranges from the array and returns the new array
@@ -715,18 +672,19 @@ function removeRanges<T>(array: T[], ranges: [number, number][]): [T[], T[]] {
   let start = 0
 
   ranges.forEach(([begin, end]) => {
-    // Add the elements before the current range to the result
     result = result.concat(array.slice(start, begin))
-
-    // Add the elements in the current range to the removedItems
     removedItems = removedItems.concat(array.slice(begin, end + 1))
-
-    // Update the start position for the next iteration
     start = end + 1
   })
 
-  // Add the remaining elements after the last range
+  // Add remainder
   result = result.concat(array.slice(start))
 
   return [result, removedItems]
+}
+
+function checkSelection(selection: ListSelection, items: SvelteListItem<any>[]) {
+  if (selection.max > items.length - 1) {
+    throw new RangeError('Selection points outside of array')
+  }
 }

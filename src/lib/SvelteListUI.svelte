@@ -17,18 +17,15 @@
   const fromSelection = (selection: ListSelection) => {
     const indices = Array.from({ length: list.items.length }, (_, index) => index)
     return selection.ranges
-      .map((r) => indices.slice(r.indices()[0], r.indices()[1] + 1))
+      .map((r) => indices.slice(r.from, r.to))
       .reduce((arr, next) => [...arr, ...next], [])
   }
 
   let selected: Set<number>
-  $: selected = new Set(fromSelection($list.selection))
+  $: selected = new Set($list.selection ? fromSelection($list.selection) : [])
 </script>
 
-<div bind:this={e}
-     class={classes.join(' ')}
-     style={style}
->
+<div bind:this={e} class={classes.join(' ')} {style}>
   {#each $list.items as item, i (item.id)}
     <SvelteListItemUI
       {item}

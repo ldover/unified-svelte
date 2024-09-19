@@ -12,10 +12,11 @@
   let list = new SvelteList(items)
   let i: number
 
-  const renderSelection = (selection: ListSelection) => {
+  const renderSelection = (selection: ListSelection | null) => {
+    if (!selection) return 'null'
     return Object.values(selection.ranges)
       .map((item) => {
-        return `(${[item.anchor, item.head]})`
+        return `(${[item.from, item.to]}${item.inverted ? '*' : ''})`
       })
       .join(', ')
   }
@@ -23,11 +24,11 @@
 
 <div class="page">
   <div class="">Selected: {renderSelection($list.selection)}</div>
-  <div class="">Main: {$list.selection.mainIndex}</div>
+  <div class="">Main: {$list.selection?.mainIndex}</div>
   <button
     disabled={!i}
     on:click={() =>
-      list.setSelection(ListSelection.create([ListSelection.single(i)]), {
+      list.setSelection(ListSelection.single(i), {
         scrollIntoView: true,
         focus: true
       })}>Select</button
