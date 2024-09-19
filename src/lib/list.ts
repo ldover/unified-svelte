@@ -186,7 +186,7 @@ export class ListSelection {
     // Here see if ranges need to be normalized
     let pos = 0
     for (const range of ranges) {
-      if (pos > range.from) {
+      if (pos >= range.from) {
         return this.normalize(ranges, mainIndex)
       }
       pos = range.to

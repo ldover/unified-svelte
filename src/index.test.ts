@@ -139,7 +139,7 @@ describe('ListSelection', () => {
     expect(formatSelection(sel4)).toBe('3/5')
   })
 
-  it('merges ranges that are not main, but overwrites ranges that overlap with  main range ', () => {
+  it('merges ranges that are not main, but overwrites ranges that overlap with  main range', () => {
     let sel5 = ListSelection.create(
       [
         ListSelection.range(3, 5),
@@ -150,5 +150,17 @@ describe('ListSelection', () => {
       2
     )
     expect(formatSelection(sel5)).toBe('3/10,15/20')
+  })
+
+  it('merges touching range with main range', () => {
+    let sel5 = ListSelection.create(
+      [
+        ListSelection.range(3, 5),
+        ListSelection.range(10, 5),
+        ListSelection.range(10, 15)
+      ],
+      1
+    )
+    expect(formatSelection(sel5)).toBe('15/3')
   })
 })
