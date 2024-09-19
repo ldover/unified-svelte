@@ -1,6 +1,6 @@
 {
   "name": "tree",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "scripts": {
     "dev": "vite dev",
     "pack": "vite build && npm run package && npm pack",
