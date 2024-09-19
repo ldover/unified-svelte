@@ -259,41 +259,14 @@ export class SelectionRange {
     return Math.abs(this.anchor - this.head)
   }
 
-  // extend(to: number): SelectionRange {
-  //   if (to < this.anchor) {
-  //     // When extending to a position before the anchor
-  //     return SelectionRange.create(to, this.to, true);
-  //   } else {
-  //     // When extending to a position after or at the anchor
-  //     return SelectionRange.create(this.from, to + 1, false);
-  //   }
-  // }
-
-  // extend(to: number): SelectionRange {
-  //   if (to < this.anchor) {
-  //     // Extend towards the anchor (possibly inverting)
-  //     return SelectionRange.create(to, this.to, true);
-  //   } else {
-  //     // Extend away from the anchor
-  //     const from = this.inverted ? this.anchor - 1 : this.from;
-  //     return SelectionRange.create(from, to + 1, false);
-  //   }
-  // }
-
   extend(to: number): SelectionRange {
-    // todo: check this... — might have to shift from, to when the selection range inverts
-    if (!this.inverted && to < this.anchor) {
-      // Invert down (5, 6), extend down to 4 -> (4, 6)
-      return SelectionRange.create(to, this.anchor + 1, true)
-    } else if (this.inverted && to >= this.anchor) {
-      // Invert up (5, 6)*, extend up to 7 -> (5, 8)
-      return SelectionRange.create(this.anchor - 1, to + 1, false)
-    } else if (this.inverted) {
-      // Same direction down (5, 6)*, extend down to 2 -> (2, 6)
-      return SelectionRange.create(to, this.to, true)
-    } else if (!this.inverted) {
-      // Same direction up (5, 6), extend up to 7 -> (5, 8)
-      return SelectionRange.create(this.from, to + 1, false)
+    if (to < this.anchor) {
+        // Extend downwards, possibly inverting the selection
+        return SelectionRange.create(to, this.anchor + 1, true);
+    } else {
+        // Extend upwards or continue in the same direction
+        const from = this.inverted ? this.anchor - 1 : this.from;
+        return SelectionRange.create(from, to + 1, false);
     }
   }
 
