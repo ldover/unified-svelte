@@ -282,15 +282,15 @@ export class SvelteTreeNode<T extends ID>
 
   get(id: string, deep: boolean = false): SvelteTreeNode<T> | null {
     if (this.id === id) return this
-    for (let child of this.children) {
+    for (const child of this.children) {
       if (child.id === id) {
         return child
       }
     }
 
     if (deep) {
-      for (let child of this.children) {
-        let result = child.get(id)
+      for (const child of this.children) {
+        const result = child.get(id)
         if (result) return result
       }
     }
@@ -300,7 +300,7 @@ export class SvelteTreeNode<T extends ID>
 
   getByContentId(contentId: string): SvelteTreeNode<T>[] {
     let result: SvelteTreeNode<T>[] = []
-    for (let child of this.children) {
+    for (const child of this.children) {
       result = [...result, ...child.getByContentId(contentId)]
     }
 

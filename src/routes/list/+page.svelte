@@ -4,12 +4,13 @@
   import SvelteListUI from '$lib/SvelteListUI.svelte'
   import BasicListItemUi from './components/BasicListItemUI.svelte'
 
-  let items: SvelteListItem<any>[] = [...new Array(200)].map((_, i) => {
-    const id = i + ''
-    return new SvelteListItem(id, new ItemImpl(id, `Item ${id}`), { component: BasicListItemUi })
-  })
+  let builder = (d: {id: string}) => new SvelteListItem(d.id, new ItemImpl(d.id, `Item ${d.id}`), { component: BasicListItemUi })
 
-  let list = new SvelteList(items)
+  let data = [...new Array(20)].map((_, i) => ({
+    id: i + ''
+  }))
+
+  let list = new SvelteList(data, builder)
   let i: number
 
   const renderSelection = (selection: ListSelection | null) => {
@@ -25,10 +26,14 @@
 <div class="page">
   <div class="">Selected: {renderSelection($list.selection)}</div>
   <div class="">Main: {$list.selection?.mainIndex}</div>
+  <div class="">
+    <button on:click={() => list.insert({id: 'X' + Math.random() * 1000}, i)}>Insert</button>
+    <button on:click={() => list.remove(list.data[i])}>Remove</button>
+  </div>
   <button
     disabled={!i}
     on:click={() =>
-      list.setSelection(ListSelection.single(i), {
+      list.select(ListSelection.single(i), {
         scrollIntoView: true,
         focus: true
       })}>Select</button

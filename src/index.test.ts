@@ -1,4 +1,4 @@
-import { ListSelection } from './lib/list.js'
+import { ListSelection, SvelteList, SvelteListItem, type Content } from './lib/list.js'
 import { describe, it, expect } from 'vitest'
 
 const formatSelection = (sel: ListSelection) =>
@@ -139,7 +139,7 @@ describe('ListSelection', () => {
     expect(formatSelection(sel4)).toBe('3/5')
   })
 
-  it('merges ranges that are not main, but overwrites ranges that overlap with  main range', () => {
+  it('merges ranges that are not main, but overwrites ranges that overlap with main range', () => {
     let sel5 = ListSelection.create(
       [
         ListSelection.range(3, 5),
@@ -158,5 +158,103 @@ describe('ListSelection', () => {
       1
     )
     expect(formatSelection(sel5)).toBe('15/3')
+  })
+
+  it('updates selection after insert', () => {
+    const data = [{ id: '1' }, { id: '2' }]
+    
+    const list = new SvelteList(data, (item) => new SvelteListItem(item.id, { id: item.id }, {component: null, selectable: true}))
+    list.select(ListSelection.single(1))
+    list.insert({ id: '0' }, 0)
+
+    expect(formatSelection(list.selection!)).toBe('2/3')
+  })
+
+
+  it('splits selection when inserting in the middle of selection', () => {
+    const data = [{ id: '1' }, { id: '2' }]
+    
+    const list = new SvelteList(data, (item) => new SvelteListItem(item.id, { id: item.id }, {component: null, selectable: true}))
+    list.select(ListSelection.create([ListSelection.range(0, 2)]))
+    list.insert({ id: '0' }, 1)
+
+    expect(formatSelection(list.selection!)).toBe('0/1,2/3')
+  })
+
+  it('adjusts selection after remove', () => {
+    const data = [{ id: '1' }, { id: '2' }, { id: '3' }]
+    
+    const list = new SvelteList(data, (item) => new SvelteListItem(item.id, { id: item.id }, {component: null, selectable: true}))
+    list.select(ListSelection.single(2))
+    list.remove({ id: '2' })
+
+    expect(formatSelection(list.selection!)).toBe('1/2')
+  })
+
+  it('merges selection after remove', () => {
+    const data = [{ id: '1' }, { id: '2' }, { id: '3' }]
+    
+    const list = new SvelteList(data, (item) => new SvelteListItem(item.id, { id: item.id }, {component: null, selectable: true}))
+    list.select(ListSelection.create([ListSelection.range(0, 1), ListSelection.range(2, 3)]))
+    list.remove({ id: '2' })
+
+    expect(formatSelection(list.selection!)).toBe('0/2')
+  })
+
+  it('removes the overlapping part of the selection with removeFrom', () => {
+    const data = [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }]
+    
+    const list = new SvelteList(data, (item) => new SvelteListItem(item.id, { id: item.id }, {component: null, selectable: true}))
+    list.select(ListSelection.create([
+      ListSelection.range(0, 1),
+      ListSelection.range(3, 5)
+    ]))
+    
+    list.removeFrom(2, 4) // result [1, 2, 5]
+    expect(formatSelection(list.selection!)).toBe('0/1,2/3')
+  })
+})
+
+
+const serializeItems = (items: SvelteListItem<Content>[]) => {
+  return items.map(item => item.content.id).join(',')  
+}
+
+describe('SvelteList', () => {
+  it('adds item', () => {
+    const data = [{ id: '1' }, { id: '2' }]
+    
+    const list = new SvelteList(data, (item) => new SvelteListItem(item.id, { id: item.id }, {component: null, selectable: true}))
+    list.add({ id: '3' })
+    
+    expect(serializeItems(list.items)).toBe('1,2,3')
+  })
+
+  it('inserts item', () => {
+    const data = [{ id: '1' }, { id: '2' }]
+    
+    const list = new SvelteList(data, (item) => new SvelteListItem(item.id, { id: item.id }, {component: null, selectable: true}))
+    list.insert({ id: '3' }, 1)
+    
+    expect(serializeItems(list.items)).toBe('1,3,2')
+  })
+
+
+  it('removes item', () => {
+    const data = [{ id: '1' }, { id: '2' }]
+    
+    const list = new SvelteList(data, (item) => new SvelteListItem(item.id, { id: item.id }, {component: null, selectable: true}))
+    list.remove({ id: '2' })
+    
+    expect(serializeItems(list.items)).toBe('1')
+  })
+
+  it('removes items from to', () => {
+    const data = [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }]
+    
+    const list = new SvelteList(data, (item) => new SvelteListItem(item.id, { id: item.id }, {component: null, selectable: true}))
+    list.removeFrom(1, 3)
+    
+    expect(serializeItems(list.items)).toBe('1,4')
   })
 })

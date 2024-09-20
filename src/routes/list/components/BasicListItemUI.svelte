@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { Item } from './item.js'
+  import type { Item, ItemImpl } from './item.js'
   import { ListSelection, type SvelteList, type SvelteListItem } from '$lib/list.js'
   import { getContext } from 'svelte'
 
   export let item: SvelteListItem<Item>
 
-  const list: SvelteList<any> = getContext('list')
+  const list: SvelteList<{id: string}, Item> = getContext('list')
 
   export let selected: boolean
   export let nextSelected: boolean
@@ -38,7 +38,7 @@
     }
 
     if (newSelection) {
-      list.setSelection(newSelection)
+      list.select(newSelection)
     }
   }
 
@@ -59,7 +59,7 @@
     } else if (e.key == 'ArrowDown' && !metaKeys) {
       list.down()
     } else if (e.key == 'a' && e.metaKey) {
-      list.setSelection(ListSelection.create([ListSelection.range(0, list.items.length - 1)]))
+      list.select(ListSelection.create([ListSelection.range(0, list.items.length - 1)]))
     }
   }
 </script>
