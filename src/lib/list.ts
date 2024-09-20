@@ -367,12 +367,7 @@ export class SelectionRange {
 }
 
 export interface List<Y extends ID, T extends Content> extends SvelteListProps<T> {
-  // todo: change these methods to support multiple items: `...items`
   /** Adds item to the end of the list */
-  // todo: maybe a general method would be good
-  //  that would do the work of add, insert, remove, removeFrom
-  //  and we could have those methods return the ChangeSet
-  //   apply(changes): void
   add(item: Y): void
   /** Inserts item at the given index */
   insert(item: Y, i: number): void

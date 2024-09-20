@@ -160,9 +160,19 @@ export abstract class SvelteReactiveComponent<Props, State = Props>
   update(values: Partial<Props>) {
     const prevProps = { ...this.props }
     const newProps = { ...this.props, ...values }
+    for (const property in values) {
+      this.listeners.beforePropListeners[property]?.forEach((listener) =>
+        listener(values[property]!, prevProps[property]!)
+      )
+    }
     this.listeners.beforeUpdateListeners.forEach((listener) => listener({ ...newProps }, prevProps))
     this.props = newProps
     this.store.set(this.getState())
+    for (const property in values) {
+      this.listeners.afterPropListeners[property]?.forEach((listener) =>
+        listener(values[property]!, prevProps[property]!)
+      )
+    }
     this.listeners.afterUpdateListeners.forEach((listener) => listener({ ...newProps }, prevProps))
   }
 

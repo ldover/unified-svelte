@@ -3,7 +3,7 @@
   import SvelteListItemUI from '$lib/SvelteListItemUI.svelte'
   import { onMount, setContext } from 'svelte'
 
-  export let list: SvelteList<any>
+  export let list: SvelteList<any, any>
   export let classes: string[] = []
   export let style: string = ''
 
@@ -21,8 +21,16 @@
       .reduce((arr, next) => [...arr, ...next], [])
   }
 
-  let selected: Set<number>
-  $: selected = new Set($list.selection ? fromSelection($list.selection) : [])
+  let selected: Set<number> = new Set()
+  list.afterSet('selection', (selection, prev) => {
+    if (selection) {
+      if (!prev || (prev && !selection.eq(prev))) {
+        selected = new Set($list.selection ? fromSelection($list.selection) : [])
+      }
+    } else {
+      selected = new Set()
+    }
+  })
 </script>
 
 <div bind:this={e} class={classes.join(' ')} {style}>
