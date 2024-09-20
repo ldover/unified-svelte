@@ -5,7 +5,7 @@
 
   export let item: SvelteListItem<Item>
 
-  const list: SvelteList<{id: string}, Item> = getContext('list')
+  const list: SvelteList<{ id: string }, Item> = getContext('list')
 
   export let selected: boolean
   export let nextSelected: boolean

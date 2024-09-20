@@ -4,7 +4,8 @@
   import SvelteListUI from '$lib/SvelteListUI.svelte'
   import BasicListItemUi from './components/BasicListItemUI.svelte'
 
-  let builder = (d: {id: string}) => new SvelteListItem(d.id, new ItemImpl(d.id, `Item ${d.id}`), { component: BasicListItemUi })
+  let builder = (d: { id: string }) =>
+    new SvelteListItem(d.id, new ItemImpl(d.id, `Item ${d.id}`), { component: BasicListItemUi })
 
   let data = [...new Array(20)].map((_, i) => ({
     id: i + ''
@@ -12,6 +13,7 @@
 
   let list = new SvelteList(data, builder)
   let i: number
+  let i1: number
 
   const renderSelection = (selection: ListSelection | null) => {
     if (!selection) return 'null'
@@ -21,24 +23,41 @@
       })
       .join(', ')
   }
+
+  function handleRemove() {
+    if (i && i1) {
+      list.removeFrom(i, i1)
+    } else {
+      list.remove(list.data[i])
+    }
+  }
 </script>
 
 <div class="page">
   <div class="">Selected: {renderSelection($list.selection)}</div>
   <div class="">Main: {$list.selection?.mainIndex}</div>
   <div class="">
-    <button on:click={() => list.insert({id: 'X' + Math.random() * 1000}, i)}>Insert</button>
-    <button on:click={() => list.remove(list.data[i])}>Remove</button>
+    <button disabled={!i} on:click={() => list.insert({ id: 'X' + Math.random() * 1000 }, i)}
+      >Insert</button
+    >
+    <button disabled={!i} on:click={() => handleRemove()}>Remove</button>
+    <button
+      disabled={!i}
+      on:click={() =>
+        list.select(ListSelection.single(i), {
+          scrollIntoView: true,
+          focus: true
+        })}>Select</button
+    >
   </div>
-  <button
-    disabled={!i}
-    on:click={() =>
-      list.select(ListSelection.single(i), {
-        scrollIntoView: true,
-        focus: true
-      })}>Select</button
-  >
-  <input type="number" bind:value={i} />
+  <label>
+    i0
+    <input type="number" bind:value={i} />
+  </label>
+  <label>
+    i1
+    <input type="number" bind:value={i1} />
+  </label>
   <div class="list-container">
     <SvelteListUI {list} />
   </div>

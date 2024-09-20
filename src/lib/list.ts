@@ -1,7 +1,6 @@
 import { SvelteReactiveComponent } from './reactive.js'
 import { inView, insert, mergeOptions, remove } from './util.js'
 
-
 interface SvelteListProps<T extends Content> {
   items: SvelteListItem<T>[]
   selection: ListSelection | null
@@ -77,7 +76,7 @@ export class ListSelection {
     } else {
       // Split this range in two if index is in the middle of the selecton
       // or shorten the range if index is at the edge of selection
-      let [i0, i1] = [range.from, range.to]
+      const [i0, i1] = [range.from, range.to]
 
       // For range (0, 2), 0th and 1st elements are at the edge
       const atTheEdge = index === i0 || index + 1 === i1
@@ -211,18 +210,18 @@ export class ListSelection {
     // Sort ranges, then merge overlapping and touching ranges: (0, 1) and (1, 2) get merged to (0, 2)
     // Exceptions: ranges that overlap main range are removed, ranges that touch main range are merged,
     // direction of the main range is preserved
-    let main = ranges[mainIndex]
+    const main = ranges[mainIndex]
     sortRanges(ranges)
     mainIndex = ranges.indexOf(main)
     for (let i = 1; i < ranges.length; i++) {
-      let range = ranges[i],
+      const range = ranges[i],
         prev = ranges[i - 1],
         main = ranges[mainIndex]
       if (range.from <= prev.to) {
         // If it overlaps (<) or touches (==) previous range
         const keepMain = (range == main || prev == main) && range.from < prev.to // Overwrite with main range if overlaps
-        let from = keepMain ? main.from : prev.from
-        let to = keepMain ? main.to : Math.max(range.to, prev.to)
+        const from = keepMain ? main.from : prev.from
+        const to = keepMain ? main.to : Math.max(range.to, prev.to)
         if (i <= mainIndex) mainIndex--
         ranges.splice(
           --i,
@@ -284,9 +283,44 @@ export class SelectionRange {
     return this.from < other.from
   }
 
+  /** Subtract other from this:
+   * EX: If this is (10, 20) and other is (0, 15)
+   * - this.subtract(other): (10, 20) - (0, 15) = (15, 20)
+   * - other.subtract(this): (0, 15) - (10, 20) = (0, 10)
+   *
+   */
+  subtract(other: SelectionRange): SelectionRange | [SelectionRange, SelectionRange] | null {
+    const [thisFrom, thisTo] = this.indices()
+    const [otherFrom, otherTo] = other.indices()
+
+    // Case 1: No overlap
+    if (otherTo <= thisFrom || otherFrom >= thisTo) {
+      return this
+    }
+
+    // Case 2: Full containment, return null since this is fully covered
+    if (otherFrom <= thisFrom && otherTo >= thisTo) {
+      return null
+    }
+
+    // Case 3: Overlap on the left side (remove the left part)
+    if (otherFrom <= thisFrom && otherTo < thisTo) {
+      return SelectionRange.create(otherTo, thisTo)
+    }
+
+    // Case 4: Overlap on the right side (remove the right part)
+    if (otherFrom > thisFrom && otherTo >= thisTo) {
+      return SelectionRange.create(thisFrom, otherFrom)
+    }
+
+    // Case 5: Other is in the middle, return two disjoint ranges
+    const leftRange = SelectionRange.create(thisFrom, otherFrom)
+    const rightRange = SelectionRange.create(otherTo, thisTo)
+    return [leftRange, rightRange]
+  }
+
   contains(pos: number): boolean {
-    const [i0, i1] = [this.from, this.to]
-    return i0 <= pos && pos < i1
+    return this.from <= pos && pos < this.to
   }
 
   /**
@@ -378,9 +412,10 @@ export class SvelteList<Y extends ID, T extends Content>
 
   private _ids = new Set<string>()
 
-  constructor(public data: Y[], 
-              public readonly builder: (item: Y) => SvelteListItem<T>
-    ) {
+  constructor(
+    public data: Y[],
+    public readonly builder: (item: Y) => SvelteListItem<T>
+  ) {
     const items = data.map(builder)
     super({ selection: null, items, focused: null, e: null })
   }
@@ -391,8 +426,8 @@ export class SvelteList<Y extends ID, T extends Content>
     this.data = data
     this.items.forEach((item) => item.destroy())
     const items = data.map(this.builder)
-    this.set('selection', null) // Reset selection when reseting the list
-    this.set('items', items)
+    // Reset selection when reseting the list
+    this.update({ items, selection: null })
   }
 
   add(item: Y): void {
@@ -408,65 +443,81 @@ export class SvelteList<Y extends ID, T extends Content>
     if (i < 0 || i > this.items.length) {
       throw new Error('Index out of bounds')
     }
-    
+
     this.data = insert(this.data, item, i)
     const items = insert(this.items, this.builder(item), i)
     this.set('items', items)
 
+    let newSelection = this.selection
     if (this.selection) {
       // Case when the insertion is in the middle of one range (2, 4), if 3, then split into (2, 3) and (4, 5)
-      const rangeIndex = this.selection.ranges.findIndex(r => r.from < i && i < r.to)
+      const rangeIndex = this.selection.ranges.findIndex((r) => r.from < i && i < r.to)
       if (rangeIndex != -1) {
         const inMiddle = this.selection.ranges[rangeIndex]
         const newRange = ListSelection.range(inMiddle.from, i)
         const leftover = ListSelection.range(i + 1, inMiddle.to + 1)
         // Replace range and add the split range
-        this.set('selection', this.selection.replaceRange(newRange, rangeIndex).addRange(leftover, false))
+        newSelection = this.selection.replaceRange(newRange, rangeIndex).addRange(leftover, false)
       } else {
         // Shift all ranges after the insertion
-        this.set('selection', ListSelection.create(this.selection.ranges.map(r => r.from >= i ? r.shift(1): r), this.selection.mainIndex))
+        newSelection = ListSelection.create(
+          this.selection.ranges.map((r) => (r.from >= i ? r.shift(1) : r)),
+          this.selection.mainIndex
+        )
       }
     }
+
+    this.update({ items, selection: newSelection })
   }
 
   remove(item: Y): void {
-    const index = this.data.findIndex(i => i.id == item.id)
+    const index = this.data.findIndex((i) => i.id == item.id)
     if (index === -1) {
       throw new Error('Item not found')
     }
     this._removeId(item)
 
     let pos = index
+    let selection: ListSelection | null = this.selection
     if (this.selection) {
-      let newSel: ListSelection | null = this.selection
       if (this.selection.contains(index)) {
-        const rangeIndex = this.selection.ranges.findIndex(r => r.from <= index && index < r.to)
+        const rangeIndex = this.selection.ranges.findIndex((r) => r.from <= index && index < r.to)
         const range = this.selection.ranges[rangeIndex]
         // todo: test if preserving direction works here
         if (range.length == 1) {
           // remove this selection range
           if (this.selection.ranges.length == 1) {
-            newSel = null
+            selection = null
           } else {
-            const mainIndex = range == this.selection.main ? Math.max(0, rangeIndex - 1) : this.selection.mainIndex
-            newSel = ListSelection.create(this.selection.ranges.filter(r => r !== range), mainIndex)
+            const mainIndex =
+              range == this.selection.main ? Math.max(0, rangeIndex - 1) : this.selection.mainIndex
+            selection = ListSelection.create(
+              this.selection.ranges.filter((r) => r !== range),
+              mainIndex
+            )
           }
         } else {
-          const newRange = range.inverted ? ListSelection.range(range.to - 1, range.from) : ListSelection.range(range.from, range.to - 1)
-          newSel = this.selection.replaceRange(newRange, rangeIndex)
+          const newRange = range.inverted
+            ? ListSelection.range(range.to - 1, range.from)
+            : ListSelection.range(range.from, range.to - 1)
+          selection = this.selection.replaceRange(newRange, rangeIndex)
         }
 
         pos = range.to
       }
 
-      
-      this.set('selection', newSel ? ListSelection.create(newSel.ranges.map(r => r.to > pos ? r.shift(-1): r), this.selection.mainIndex) : null)
+      if (selection) {
+        selection = ListSelection.create(
+          selection.ranges.map((r) => (r.to > pos ? r.shift(-1) : r)),
+          this.selection.mainIndex
+        )
+      }
     }
-   
+
     this.items[index].destroy()
     this.data = remove(this.data, index)
     const items = remove(this.items, index)
-    this.set('items', items)
+    this.update({ items, selection })
   }
 
   removeFrom(selection: ListSelection): void
@@ -494,9 +545,76 @@ export class SvelteList<Y extends ID, T extends Content>
 
     removedItems.forEach((item) => item.destroy())
 
-    // todo: only reset selection from/to is affected by this change
-    this.set('selection', null)
-    this.set('items', newItems)
+    let newSelection: ListSelection | null = this.selection
+    if (newSelection) {
+      if (selection.eq(this.selection!)) {
+        // If the passed selection equals this selection simply clear it
+        newSelection = null
+      } else {
+        // Otherwise update selection — subtracting this.selection - selection, range by range
+        for (const range of selection.ranges) {
+          if (newSelection == null) {
+            break
+          }
+
+          for (const existingRange of this.selection!.ranges) {
+            // Check if ranges overlaps existing range
+            if (range.overlaps(existingRange)) {
+              // Remove or update existing ranges
+              const result = existingRange.subtract(range)
+              const rangeIndex: number = newSelection.ranges.findIndex((r) => existingRange.eq(r))
+              if (result) {
+                if (result instanceof SelectionRange) {
+                  newSelection = newSelection.replaceRange(result, rangeIndex)
+                } else {
+                  // Two ranges got produced by subtraction: replace the first and add the second
+                  newSelection = newSelection
+                    .replaceRange(result[0], rangeIndex)
+                    .addRange(result[1], false)
+                }
+              } else {
+                // Range was removed - filter out the range and move main index
+                const ranges = [...newSelection.ranges]
+                ranges.splice(rangeIndex, 1)
+                if (ranges.length) {
+                  const mainIndex =
+                    newSelection.mainIndex >= rangeIndex
+                      ? Math.max(0, newSelection.mainIndex - 1)
+                      : newSelection.mainIndex
+                  newSelection = ListSelection.create(ranges, mainIndex)
+                } else {
+                  // Entire selection was deleted
+                  newSelection = null
+                  break
+                }
+              }
+            }
+          }
+        }
+
+        // Now shift selections left
+        if (newSelection) {
+          newSelection = ListSelection.create(
+            newSelection.ranges.map((range) => {
+              const cumulativeBefore = selection.ranges.reduce(
+                (total, r) => (r.less(range) ? r.length + total : 0),
+                0
+              )
+              if (cumulativeBefore) {
+                return range.shift(-cumulativeBefore)
+              }
+              return range
+            }),
+            newSelection.mainIndex
+          ) // Keep mainIndex
+        }
+      }
+    }
+
+    this.update({
+      items: newItems,
+      selection: newSelection
+    })
   }
 
   select(selection: ListSelection | null, options?: SelectOptions | undefined): void {
@@ -633,9 +751,9 @@ export interface Content extends ID {
   destroy?: () => void
 }
 
-export class SvelteListItem<T extends Content>
-  extends SvelteReactiveComponent<SvelteListItemProps<T>>
-{
+export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
+  SvelteListItemProps<T>
+> {
   constructor(id: string, content: T, options: Partial<ListItemOptions>) {
     const merged: ListItemOptions = mergeOptions(
       {
