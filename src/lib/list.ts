@@ -1,5 +1,5 @@
 import { SvelteReactiveComponent } from './reactive.js'
-import { inView, insert, mergeOptions, remove } from './util.js'
+import { inView, insert, mergeOptions } from './util.js'
 
 interface SvelteListProps<T extends Content> {
   items: SvelteListItem<T>[]
@@ -332,9 +332,7 @@ export class SelectionRange {
     }
 
     const [r1, r2] = sortRanges([this, range])
-    const [i0, i1] = r1.indices()
-    const [j0, j1] = r2.indices()
-    return j0 - i1
+    return r2.from - r1.to
   }
 
   /**
@@ -342,10 +340,7 @@ export class SelectionRange {
    */
   overlaps(range: SelectionRange): boolean {
     const [r1, r2] = sortRanges([this, range])
-    const [i0, i1] = r1.indices()
-    const [j0, _] = r2.indices()
-
-    return i0 <= j0 && j0 < i1
+    return r1.from <= r2.from && r2.from < r1.to
   }
 
   touches(range: SelectionRange): boolean {
@@ -372,7 +367,9 @@ export interface List<Y extends ID, T extends Content> extends SvelteListProps<T
   /** Inserts item at the given index */
   insert(item: Y, i: number): void
   /** Removes items from the list */
-  remove(item: Y): void
+  remove(contentId: string): void
+  /** Removes items at the given index */
+  removeFrom(index: number): void
   /** Removes items from given ListSelection */
   removeFrom(selection: ListSelection): void
   /** Removes items from specified range: from (inclusive), to (exclusive) */
@@ -383,20 +380,36 @@ export interface List<Y extends ID, T extends Content> extends SvelteListProps<T
   up(): void
   /** Move selection down */
   down(): void
-  /** Gets item by id */
+  /** Gets item by element id */
   getItem(id: string): SvelteListItem<T> | null
-  /** Returns the position of the item in the list */
-  getIndex(item: SvelteListItem<T>): number
   /** Gets item by content id */
   getByContentId(id: string): SvelteListItem<T> | null
 }
 
 export interface SvelteListItemProps<T extends Content> {
   id: string
-  selectable: boolean
   content: T
   component: any
 }
+
+interface ListItemData<T extends Content> {
+  content: T
+  options?: ListItemOptions
+}
+
+const buildItems = <Y extends ID, T extends Content>(
+  data: Y[],
+  builder: ListItemBuilder<Y, T>,
+  listId: string
+) => {
+  return data.map((d) => {
+    const id = `${listId}-${d.id}`
+    const { content, options = {} } = builder(d)
+    return new SvelteListItem(id, content, options)
+  })
+}
+
+type ListItemBuilder<Y, T> = (item: Y) => ListItemData<T>
 
 export class SvelteList<Y extends ID, T extends Content>
   extends SvelteReactiveComponent<SvelteListProps<T>>
@@ -409,38 +422,36 @@ export class SvelteList<Y extends ID, T extends Content>
 
   constructor(
     public data: Y[],
-    public readonly builder: (item: Y) => SvelteListItem<T>
+    public readonly builder: ListItemBuilder<Y, T>,
+    public readonly listId: string = `list-${Math.random()}`
   ) {
-    const items = data.map(builder)
+    const items = buildItems(data, builder, listId)
     super({ selection: null, items, focused: null, e: null })
+    this.listId = listId
   }
 
   setData(data: Y[]): void {
     this._ids.clear()
-    this._addId(...data)
-    this.data = data
-    this.items.forEach((item) => item.destroy())
-    const items = data.map(this.builder)
+    const items = buildItems(data, this.builder, this.listId)
+    this._addId(...items)
     // Reset selection when reseting the list
     this.update({ items, selection: null })
   }
 
   add(item: Y): void {
-    this._addId(item)
-
-    this.data = [...this.data, item]
-    const newItems = [...this.items, this.builder(item)]
-    this.set('items', newItems)
+    const newItem = buildItems([item], this.builder, this.listId)[0]
+    this._addId(newItem)
+    this.set('items', [...this.items, newItem])
   }
 
   insert(item: Y, i: number): void {
-    this._addId(item)
     if (i < 0 || i > this.items.length) {
       throw new Error('Index out of bounds')
     }
 
-    this.data = insert(this.data, item, i)
-    const items = insert(this.items, this.builder(item), i)
+    const newItem = buildItems([item], this.builder, this.listId)[0]
+    this._addId(newItem)
+    const items = insert(this.items, newItem, i)
     this.set('items', items)
 
     let newSelection = this.selection
@@ -465,80 +476,34 @@ export class SvelteList<Y extends ID, T extends Content>
     this.update({ items, selection: newSelection })
   }
 
-  remove(item: Y): void {
-    const index = this.data.findIndex((i) => i.id == item.id)
+  remove(contentId: string): void {
+    const index = this.items.findIndex((i) => i.content.id == contentId)
     if (index === -1) {
       throw new Error('Item not found')
     }
-    this._removeId(item)
-
-    let pos = index
-    let selection: ListSelection | null = this.selection
-    if (this.selection) {
-      if (this.selection.contains(index)) {
-        const rangeIndex = this.selection.ranges.findIndex((r) => r.from <= index && index < r.to)
-        const range = this.selection.ranges[rangeIndex]
-        // todo: test if preserving direction works here
-        if (range.length == 1) {
-          // remove this selection range
-          if (this.selection.ranges.length == 1) {
-            selection = null
-          } else {
-            const mainIndex =
-              range == this.selection.main ? Math.max(0, rangeIndex - 1) : this.selection.mainIndex
-            selection = ListSelection.create(
-              this.selection.ranges.filter((r) => r !== range),
-              mainIndex
-            )
-          }
-        } else {
-          const newRange = range.inverted
-            ? ListSelection.range(range.to - 1, range.from)
-            : ListSelection.range(range.from, range.to - 1)
-          selection = this.selection.replaceRange(newRange, rangeIndex)
-        }
-
-        pos = range.to
-      }
-
-      if (selection) {
-        selection = ListSelection.create(
-          selection.ranges.map((r) => (r.to > pos ? r.shift(-1) : r)),
-          this.selection.mainIndex
-        )
-      }
-    }
-
-    this.items[index].destroy()
-    this.data = remove(this.data, index)
-    const items = remove(this.items, index)
-    this.update({ items, selection })
+    this.removeFrom(index)
   }
 
   removeFrom(selection: ListSelection): void
+  removeFrom(index: number): void
   removeFrom(from: number, to: number): void
   removeFrom(from: number | ListSelection, to?: number): void {
     let selection: ListSelection
     if (typeof from == 'number') {
+      if (to == undefined) {
+        to = from + 1
+      }
       selection = ListSelection.create([ListSelection.range(from, to!)])
     } else {
       selection = from
     }
-
-    const [newData, removed] = removeRanges(
-      this.data,
-      selection.ranges.map((r) => r.indices())
-    )
-    this._removeId(...removed)
 
     const [newItems, removedItems] = removeRanges(
       this.items,
       selection.ranges.map((r) => r.indices())
     )
 
-    this.data = newData
-
-    removedItems.forEach((item) => item.destroy())
+    this._removeId(...removedItems)
 
     let newSelection: ListSelection | null = this.selection
     if (newSelection) {
@@ -622,7 +587,7 @@ export class SvelteList<Y extends ID, T extends Content>
 
       if (options) {
         if (selection.main) {
-          const item = this.items[selection.main.head]
+          const item = this.items[selection.main.head - 1]
 
           const eItem = document.getElementById(item.id)
           const e = this.getProp('e')
@@ -639,8 +604,8 @@ export class SvelteList<Y extends ID, T extends Content>
   }
 
   up() {
-    if (this.focused) {
-      const i = this.items.findIndex((item) => item.id == this.focused!.id)
+    if (this.focused && this.selection) {
+      const i = this.selection.main.head - 1
       if (i > 0) {
         this.select(ListSelection.single(i - 1), { focus: true })
       }
@@ -648,8 +613,8 @@ export class SvelteList<Y extends ID, T extends Content>
   }
 
   down() {
-    if (this.focused) {
-      const i = this.items.findIndex((item) => item.id === this.focused!.id)
+    if (this.focused && this.selection) {
+      const i = this.selection.main.head - 1
       if (i < this.items.length - 1) {
         this.select(ListSelection.single(i + 1), { focus: true })
       }
@@ -658,10 +623,6 @@ export class SvelteList<Y extends ID, T extends Content>
 
   getItem(id: string): SvelteListItem<T> | null {
     return this.items.find((i) => i.id === id) || null
-  }
-
-  getIndex(item: SvelteListItem<T>): number {
-    return this.items.findIndex((listItem) => listItem === item)
   }
 
   getByContentId(id: string): SvelteListItem<T> | null {
@@ -716,7 +677,7 @@ export class SvelteList<Y extends ID, T extends Content>
     return this.getProp('focused')
   }
 
-  private _addId(...items: Y[]) {
+  private _addId(...items: SvelteListItem<T>[]) {
     items.forEach((item) => {
       if (this._ids.has(item.id)) {
         throw new Error(
@@ -726,7 +687,7 @@ export class SvelteList<Y extends ID, T extends Content>
     })
   }
 
-  private _removeId(...items: Y[]) {
+  private _removeId(...items: SvelteListItem<T>[]) {
     items.forEach((item) => {
       this._ids.delete(item.id)
     })
@@ -735,7 +696,6 @@ export class SvelteList<Y extends ID, T extends Content>
 
 interface ListItemOptions {
   component: object | null
-  selectable: boolean
 }
 
 interface ID {
@@ -743,6 +703,7 @@ interface ID {
 }
 
 export interface Content extends ID {
+  mount?: () => void
   destroy?: () => void
 }
 
@@ -752,17 +713,15 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
   constructor(id: string, content: T, options: Partial<ListItemOptions>) {
     const merged: ListItemOptions = mergeOptions(
       {
-        component: null,
-        selectable: true
+        component: null
       },
       options || {}
     )
 
     super({
-      id,
+      id: id,
       content,
-      component: merged.component,
-      selectable: merged.selectable
+      component: merged.component
     })
   }
 
@@ -776,10 +735,6 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
 
   get content(): T {
     return this.getProp('content')
-  }
-
-  get selectable(): boolean {
-    return this.getProp('selectable')
   }
 
   focus() {
@@ -796,8 +751,12 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
     return document.activeElement?.id === this.id
   }
 
+  mount(): void {
+    if (this.content.mount) this.content.mount()
+  }
+
   destroy(): void {
-    this.content.destroy && this.content.destroy()
+    if (this.content.destroy) this.content.destroy()
   }
 }
 

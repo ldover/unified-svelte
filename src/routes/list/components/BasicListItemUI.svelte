@@ -7,6 +7,7 @@
 
   const list: SvelteList<{ id: string }, Item> = getContext('list')
 
+  export let index: number
   export let selected: boolean
   export let nextSelected: boolean
   export let prevSelected: boolean
@@ -17,24 +18,23 @@
 
   function handleSelect(e: MouseEvent) {
     let newSelection: ListSelection | null = null
-    let itemIndex = list.getIndex(item)
     if (e.metaKey && list.selection) {
-      if (!list.selection.contains(itemIndex)) {
-        newSelection = list.selection.addRange(ListSelection.range(itemIndex, itemIndex + 1))
+      if (!selected) {
+        newSelection = list.selection.addRange(ListSelection.range(index, index + 1))
       } else {
-        newSelection = list.selection.splitRange(itemIndex)
+        newSelection = list.selection.splitRange(index)
       }
     } else if (e.shiftKey) {
       if (list.selection) {
         newSelection = list.selection.replaceRange(
-          list.selection.main.extend(itemIndex),
+          list.selection.main.extend(index),
           list.selection.mainIndex!
         )
       } else {
-        newSelection = ListSelection.create([ListSelection.range(0, itemIndex)])
+        newSelection = ListSelection.create([ListSelection.range(0, index)])
       }
     } else {
-      newSelection = ListSelection.single(itemIndex)
+      newSelection = ListSelection.single(index)
     }
 
     if (newSelection) {
@@ -52,7 +52,7 @@
       if (list.selection && list.selection.isMultiple()) {
         list.removeFrom(list.selection)
       } else {
-        list.remove(item)
+        list.removeFrom(index)
       }
     } else if (e.key == 'ArrowUp' && !metaKeys) {
       list.up()
@@ -81,6 +81,7 @@
     border: none;
     padding: 2px;
     background-color: white;
+    outline: none;
 
     border-top: 1px solid transparent;
   }

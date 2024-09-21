@@ -4,14 +4,16 @@
   import SvelteListUI from '$lib/SvelteListUI.svelte'
   import BasicListItemUi from './components/BasicListItemUI.svelte'
 
-  let builder = (d: { id: string }) =>
-    new SvelteListItem(d.id, new ItemImpl(d.id, `Item ${d.id}`), { component: BasicListItemUi })
+  let builder = (d: { id: string }) => ({
+    content: new ItemImpl(d.id, `Item ${d.id}`),
+    options: { component: BasicListItemUi }
+  })
 
   let data = [...new Array(20)].map((_, i) => ({
     id: i + ''
   }))
 
-  let list = new SvelteList(data, builder)
+  let list = new SvelteList(data, builder, 'simple-list')
   let i: number
   let i1: number
 

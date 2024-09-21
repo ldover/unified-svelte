@@ -1,4 +1,4 @@
-export { ReactiveComponent, SvelteReactiveComponent, type Reactive } from './reactive.js'
+export { SvelteReactiveComponent, type Reactive } from './reactive.js'
 export {
   flattenVisibleTree,
   SvelteTree,
@@ -8,14 +8,7 @@ export {
   type TreeOptions
 } from './tree.js'
 
-export {
-  SvelteList,
-  SvelteListItem,
-  type List,
-  type ListItem,
-  ListSelection,
-  SelectionRange
-} from './list.js'
+export { SvelteList, SvelteListItem, type List, ListSelection, SelectionRange } from './list.js'
 
 export { default as SvelteTreeNodeUI } from './SvelteTreeNodeUI.svelte'
 export { default as SvelteTreeUI } from './SvelteTreeUI.svelte'

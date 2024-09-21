@@ -1,7 +1,6 @@
 import type { Content } from '$lib/list.js'
 
 export interface Item extends Content {
-  id: string
   name: string
 }
 
@@ -19,5 +18,6 @@ export class ItemImpl implements Item {
     }
   }
 
+  destroy(): void {}
   destroy(): void {}
 }

@@ -37,6 +37,7 @@
   {#each $list.items as item, i (item.id)}
     <SvelteListItemUI
       {item}
+      index={i}
       selected={selected.has(i)}
       nextSelected={selected.has(i + 1)}
       prevSelected={selected.has(i - 1)}
