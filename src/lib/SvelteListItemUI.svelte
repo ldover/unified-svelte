@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { SvelteListItem } from '$lib/list.js'
+  import { type SvelteListItem } from '$lib/list.js'
   import { onDestroy, onMount } from 'svelte'
+  import { focusOnClick } from './actions/focusOnClick.js'
 
   export let item: SvelteListItem<any>
 
@@ -22,15 +23,29 @@
   })
 </script>
 
-<svelte:component
-  this={$item.component}
-  {index}
-  {item}
-  {selected}
-  {nextSelected}
-  {prevSelected}
-  {focused}
-  {focusedGroup}
-  {first}
-  {last}
-/>
+<button id={item.id} use:focusOnClick on:click on:focus on:blur on:keydown>
+  <svelte:component
+    this={$item.component}
+    {index}
+    {item}
+    {selected}
+    {nextSelected}
+    {prevSelected}
+    {focused}
+    {focusedGroup}
+    {first}
+    {last}
+  />
+</button>
+
+<style>
+  button {
+    padding: 0;
+    margin: 0;
+    width: 100%;
+
+    border: none;
+    background: none;
+    outline: none;
+  }
+</style>

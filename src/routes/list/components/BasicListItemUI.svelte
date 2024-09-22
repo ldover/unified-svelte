@@ -1,11 +1,8 @@
 <script lang="ts">
-  import type { Item, ItemImpl } from './item.js'
-  import { ListSelection, type SvelteList, type SvelteListItem } from '$lib/list.js'
-  import { getContext } from 'svelte'
+  import { type SvelteListItem } from '$lib/list.js'
+  import type { Item } from './item.js'
 
   export let item: SvelteListItem<Item>
-
-  const list: SvelteList<{ id: string }, Item> = getContext('list')
 
   export let index: number
   export let selected: boolean
@@ -15,82 +12,27 @@
   export let focusedGroup: boolean
   export let first: boolean
   export let last: boolean
-
-  function handleSelect(e: MouseEvent) {
-    let newSelection: ListSelection | null = null
-    if (e.metaKey && list.selection) {
-      if (!selected) {
-        newSelection = list.selection.addRange(ListSelection.range(index, index + 1))
-      } else {
-        newSelection = list.selection.splitRange(index)
-      }
-    } else if (e.shiftKey) {
-      if (list.selection) {
-        newSelection = list.selection.replaceRange(
-          list.selection.main.extend(index),
-          list.selection.mainIndex!
-        )
-      } else {
-        newSelection = ListSelection.create([ListSelection.range(0, index)])
-      }
-    } else {
-      newSelection = ListSelection.single(index)
-    }
-
-    if (newSelection) {
-      list.select(newSelection)
-    }
-  }
-
-  function handleKeydown(e: KeyboardEvent) {
-    e.preventDefault() // Prevents scroll of the list view on up/down navigation
-
-    const metaKeys = e.shiftKey || e.ctrlKey || e.altKey || e.metaKey
-
-    if (e.key === 'Backspace' && e.metaKey) {
-      // Delete item on CMD+backspace
-      if (list.selection && list.selection.isMultiple()) {
-        list.removeFrom(list.selection)
-      } else {
-        list.removeFrom(index)
-      }
-    } else if (e.key == 'ArrowUp' && !metaKeys) {
-      list.up()
-    } else if (e.key == 'ArrowDown' && !metaKeys) {
-      list.down()
-    } else if (e.key == 'a' && e.metaKey) {
-      list.select(ListSelection.create([ListSelection.range(0, list.items.length - 1)]))
-    }
-  }
 </script>
 
-<button
-  id={item.id}
-  on:keydown={handleKeydown}
-  on:click={handleSelect}
+<div
   class:selected
   class:prevSelected
   class:nextSelected
+  class:last
+  class:first
   class:focused={focused || focusedGroup}
 >
   {$item.content.name}
-</button>
+</div>
 
 <style>
-  button {
-    border: none;
+  div {
     padding: 2px;
     background-color: white;
-    outline: none;
-
     border-top: 1px solid transparent;
   }
 
-  button:not(.selected) {
-    border-top: 1px solid rgb(205, 205, 205);
-  }
-
-  button:not(.prevSelected) {
+  div:not(.first):not(.selected):not(.prevSelected) {
     border-top: 1px solid rgb(205, 205, 205);
   }
 
@@ -104,11 +46,11 @@
     border-left: 6px solid green;
   }
 
-  button.prevSelected {
+  div.prevSelected {
     border-top-left-radius: 0px;
     border-top-right-radius: 0px;
   }
-  button.nextSelected {
+  div.nextSelected {
     border-bottom-left-radius: 0px;
     border-bottom-right-radius: 0px;
   }

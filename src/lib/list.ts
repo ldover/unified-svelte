@@ -411,23 +411,61 @@ const buildItems = <Y extends ID, T extends Content>(
 
 type ListItemBuilder<Y, T> = (item: Y) => ListItemData<T>
 
+interface ListOptions {
+  id: string // optional list id
+  focusOn: 'click' | 'mousedown' // default focus on click (although might be more web-native if focus on 'mousedown' is default)
+  keymap?: KeyBinding[] // custom key bindings
+  selection: 'multi' | 'single'
+  onSelect?: Handler<MouseEvent>
+}
+
+// Refer to CodeMirror for designing this interface
+interface KeyBinding {
+  key: string
+  run: Command
+}
+
+type Command = (target: SvelteList<any, any>) => void
+
+interface HandlerProps {
+  item: SvelteListItem<any>
+  index: number
+}
+
+// User can pass custom selection logic
+export type Handler<E extends Event> = (
+  this: SvelteList<any, any>,
+  event: E,
+  props: HandlerProps
+) => void
+
+function defaultOptions(): ListOptions {
+  return {
+    id: `list-${Math.round(Math.random() * 100000)}`,
+    focusOn: 'click', // todo: implement
+    selection: 'multi' // todo: implemente
+  }
+}
+
 export class SvelteList<Y extends ID, T extends Content>
   extends SvelteReactiveComponent<SvelteListProps<T>>
   implements List<Y, T>
 {
-  private focusListener?: (event: FocusEvent) => void
-  private blurListener?: (event: FocusEvent) => void
+  public listId: string
 
   private _ids = new Set<string>()
+  public readonly options: ListOptions
 
   constructor(
-    public data: Y[],
+    data: Y[],
     public readonly builder: ListItemBuilder<Y, T>,
-    public readonly listId: string = `list-${Math.random()}`
+    options: Partial<ListOptions> = {}
   ) {
-    const items = buildItems(data, builder, listId)
+    const mergedOptions = mergeOptions(defaultOptions(), options)
+    const items = buildItems(data, builder, mergedOptions.id)
     super({ selection: null, items, focused: null, e: null })
-    this.listId = listId
+    this.options = mergedOptions
+    this.listId = this.options.id
   }
 
   setData(data: Y[]): void {
@@ -452,7 +490,6 @@ export class SvelteList<Y extends ID, T extends Content>
     const newItem = buildItems([item], this.builder, this.listId)[0]
     this._addId(newItem)
     const items = insert(this.items, newItem, i)
-    this.set('items', items)
 
     let newSelection = this.selection
     if (this.selection) {
@@ -631,35 +668,9 @@ export class SvelteList<Y extends ID, T extends Content>
 
   setElement(e: HTMLElement): void {
     this.set('e', e)
-    this.focusListener = (event: FocusEvent) => {
-      const id = (event.target as HTMLElement).id
-      if (id) {
-        const item = this.getItem(id)
-        if (item) {
-          this.set('focused', item)
-        } else {
-          console.error(
-            `Failed to find the HTMLElement corresponding to the focused list item with ID: '${id}'. Ensure each list item element has a unique 'id' attribute matching its data representation.`
-          )
-        }
-      }
-    }
-
-    this.blurListener = () => {
-      this.set('focused', null)
-    }
-
-    e.addEventListener('focus', this.focusListener, true)
-    e.addEventListener('blur', this.blurListener, true)
   }
 
-  destroy(): void {
-    const e = this.e
-    if (e) {
-      this.focusListener && e.removeEventListener('focus', this.focusListener, true)
-      this.blurListener && e.removeEventListener('blur', this.blurListener, true)
-    }
-  }
+  destroy(): void {}
 
   get e(): HTMLElement | null {
     return this.getProp('e')

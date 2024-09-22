@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { ListSelection, SvelteList, SvelteListItem } from '$lib/list.js'
-  import { ItemImpl } from './components/item.js'
+  import { ListSelection, SvelteList } from '$lib/list.js'
   import SvelteListUI from '$lib/SvelteListUI.svelte'
   import BasicListItemUi from './components/BasicListItemUI.svelte'
+  import { ItemImpl } from './components/item.js'
 
   let builder = (d: { id: string }) => ({
     content: new ItemImpl(d.id, `Item ${d.id}`),
@@ -13,7 +13,7 @@
     id: i + ''
   }))
 
-  let list = new SvelteList(data, builder, 'simple-list')
+  let list = new SvelteList(data, builder, { id: 'simple-list' })
   let i: number
   let i1: number
 
@@ -30,7 +30,7 @@
     if (i && i1) {
       list.removeFrom(i, i1)
     } else {
-      list.remove(list.data[i])
+      list.remove(list.items[i].content.id)
     }
   }
 </script>

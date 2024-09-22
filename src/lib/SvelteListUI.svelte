@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ListSelection, SvelteList } from '$lib/list.js'
+  import { ListSelection, type Handler, type SvelteList } from '$lib/list.js'
   import SvelteListItemUI from '$lib/SvelteListItemUI.svelte'
   import { onMount, setContext } from 'svelte'
 
@@ -31,11 +31,76 @@
       selected = new Set()
     }
   })
+
+  const defaultSelectionHandler: Handler<MouseEvent> = function (e, props) {
+    const index = props.index
+    let newSelection: ListSelection | null = null
+    if (e.metaKey && this.selection) {
+      if (!this.selection.contains(index)) {
+        newSelection = this.selection.addRange(ListSelection.range(index, index + 1))
+      } else {
+        newSelection = this.selection.splitRange(index)
+      }
+    } else if (e.shiftKey) {
+      if (this.selection) {
+        newSelection = this.selection.replaceRange(
+          this.selection.main.extend(index),
+          this.selection.mainIndex!
+        )
+      } else {
+        newSelection = ListSelection.create([ListSelection.range(0, index)])
+      }
+    } else {
+      newSelection = ListSelection.single(index)
+    }
+
+    if (newSelection) {
+      this.select(newSelection)
+    }
+  }
+
+  const handleClick: Handler<MouseEvent> = function handleClick(event, props) {
+    const selector = list.options.onSelect ? list.options.onSelect : defaultSelectionHandler
+    selector.call(list, event, props)
+  }
+
+  const handleKeydown: Handler<KeyboardEvent> = (e, { index }) => {
+    e.preventDefault() // Prevents scroll of the list view on up/down navigation
+
+    const metaKeys = e.shiftKey || e.ctrlKey || e.altKey || e.metaKey
+
+    if (e.key === 'Backspace' && e.metaKey) {
+      // Delete item on CMD+backspace
+      if (list.selection && list.selection.isMultiple()) {
+        list.removeFrom(list.selection)
+      } else {
+        list.removeFrom(index)
+      }
+    } else if (e.key == 'ArrowUp' && !metaKeys) {
+      list.up()
+    } else if (e.key == 'ArrowDown' && !metaKeys) {
+      list.down()
+    } else if (e.key == 'a' && e.metaKey) {
+      list.select(ListSelection.create([ListSelection.range(0, list.items.length)]))
+    }
+  }
+
+  const handleFocus: Handler<FocusEvent> = function (event, props) {
+    list.set('focused', props.item)
+  }
+
+  const handleBlur: Handler<FocusEvent> = function () {
+    list.set('focused', null)
+  }
 </script>
 
 <div bind:this={e} class={classes.join(' ')} {style}>
   {#each $list.items as item, i (item.id)}
     <SvelteListItemUI
+      on:click={(e) => handleClick.call(list, e, { item, index: i })}
+      on:keydown={(e) => handleKeydown.call(list, e, { item, index: i })}
+      on:focus={(e) => handleFocus.call(list, e, { item, index: i })}
+      on:blur={(e) => handleBlur.call(list, e, { item, index: i })}
       {item}
       index={i}
       selected={selected.has(i)}
