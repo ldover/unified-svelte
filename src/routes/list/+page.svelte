@@ -13,7 +13,17 @@
     id: i + ''
   }))
 
-  let list = new SvelteList(data, builder, { id: 'simple-list' })
+  let list = new SvelteList(data, builder, {
+    id: 'simple-list',
+    keymap: [
+      {
+        key: 'Cmd-Alt-a',
+        run: (list) => {
+          list.selection?.pick(list.items).forEach((item) => console.log('archive', item))
+        }
+      }
+    ]
+  })
   let i: number
   let i1: number
 

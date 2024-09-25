@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ListSelection, type Handler, type SvelteList } from '$lib/list.js'
+  import { ListSelection, type Handler, type SvelteList, runHandlers } from '$lib/list.js'
   import SvelteListItemUI from '$lib/SvelteListItemUI.svelte'
   import { onMount, setContext } from 'svelte'
 
@@ -64,24 +64,9 @@
     selector.call(list, event, props)
   }
 
-  const handleKeydown: Handler<KeyboardEvent> = (e, { index }) => {
-    e.preventDefault() // Prevents scroll of the list view on up/down navigation
-
-    const metaKeys = e.shiftKey || e.ctrlKey || e.altKey || e.metaKey
-
-    if (e.key === 'Backspace' && e.metaKey) {
-      // Delete item on CMD+backspace
-      if (list.selection && list.selection.isMultiple()) {
-        list.removeFrom(list.selection)
-      } else {
-        list.removeFrom(index)
-      }
-    } else if (e.key == 'ArrowUp' && !metaKeys) {
-      list.up()
-    } else if (e.key == 'ArrowDown' && !metaKeys) {
-      list.down()
-    } else if (e.key == 'a' && e.metaKey) {
-      list.select(ListSelection.create([ListSelection.range(0, list.items.length)]))
+  const handleKeydown: Handler<KeyboardEvent> = (e, props) => {
+    if (runHandlers(list.keymap, e, list, props)) {
+      e.preventDefault()
     }
   }
 
