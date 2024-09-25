@@ -3,9 +3,11 @@ import {
   SvelteList,
   SvelteListItem,
   type Content,
-  SelectionRange
+  SelectionRange,
+  runHandlers,
+  buildKeymap
 } from './lib/list.js'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 
 const formatSelection = (sel: ListSelection) =>
   sel.ranges.map((r) => r.anchor + '/' + r.head).join(',')
@@ -360,5 +362,97 @@ describe('ListSelection - subtract method', () => {
 
     // Expected result is the original range since there is no overlap
     expect(formatSelection(ListSelection.create([result as SelectionRange]))).toBe('4/10')
+  })
+})
+
+describe('runHandlers', () => {
+  let list: any
+  let commandRan: boolean
+  let props: any // Mock props for handler
+
+  // Sample commands
+  const mockCommand = (list: any, props: any) => {
+    commandRan = true
+  }
+
+  beforeEach(() => {
+    commandRan = false
+    list = null
+    props = { item: {}, index: 0 } // Mock props
+  })
+
+  it('handles simple key without modifiers', () => {
+    const keymap = buildKeymap([{ key: 'Enter', run: mockCommand }])
+
+    const event = new KeyboardEvent('keydown', { key: 'Enter' })
+    const result = runHandlers(keymap, event, list, props)
+
+    expect(result).toBe(true)
+    expect(commandRan).toBe(true)
+  })
+
+  it('handles key with modifier (Ctrl)', () => {
+    const keymap = buildKeymap([{ key: 'Ctrl-S', run: mockCommand }])
+
+    const event = new KeyboardEvent('keydown', { key: 'S', ctrlKey: true })
+    const result = runHandlers(keymap, event, list, props)
+
+    expect(result).toBe(true)
+    expect(commandRan).toBe(true)
+  })
+
+  it('handles key with Shift modifier', () => {
+    const keymap = buildKeymap([{ key: 'Shift-Enter', run: mockCommand }])
+
+    const event = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true })
+    const result = runHandlers(keymap, event, list, props)
+
+    expect(result).toBe(true)
+    expect(commandRan).toBe(true)
+  })
+
+  it('handles key with multiple modifiers (Ctrl-Shift-S)', () => {
+    const keymap = buildKeymap([{ key: 'Ctrl-Shift-S', run: mockCommand }])
+
+    const event = new KeyboardEvent('keydown', { key: 'S', ctrlKey: true, shiftKey: true })
+    const result = runHandlers(keymap, event, list, props)
+
+    expect(result).toBe(true)
+    expect(commandRan).toBe(true)
+
+    const event2 = new KeyboardEvent('keydown', { key: 'S', ctrlKey: true })
+    const result2 = runHandlers(keymap, event2, list, props)
+
+    expect(result2).toBe(false)
+  })
+
+  it('handles key with Alt modifier and fall back to base key', () => {
+    const keymap = buildKeymap([{ key: 'Alt-S', run: mockCommand }])
+
+    const event = new KeyboardEvent('keydown', { key: 'S', altKey: true })
+    const result = runHandlers(keymap, event, list, props)
+
+    expect(result).toBe(true)
+    expect(commandRan).toBe(true)
+  })
+
+  it('should not handle key when no binding exists', () => {
+    const keymap = buildKeymap([{ key: 'Ctrl-S', run: mockCommand }])
+
+    const event = new KeyboardEvent('keydown', { key: 'A', ctrlKey: true })
+    const result = runHandlers(keymap, event, list, props)
+
+    expect(result).toBe(false)
+    expect(commandRan).toBe(false)
+  })
+
+  it('handles shift-modified character key', () => {
+    const keymap = buildKeymap([{ key: 'Shift-A', run: mockCommand }])
+
+    const event = new KeyboardEvent('keydown', { key: 'A', shiftKey: true })
+    const result = runHandlers(keymap, event, list, props)
+
+    expect(result).toBe(true)
+    expect(commandRan).toBe(true)
   })
 })

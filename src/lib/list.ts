@@ -963,7 +963,7 @@ function modifiers(name: string, event: KeyboardEvent, shift: boolean) {
   if (event.altKey) name = 'Alt-' + name
   if (event.ctrlKey) name = 'Ctrl-' + name
   if (event.metaKey) name = 'Meta-' + name
-  if (shift !== false && event.shiftKey) name = 'Shift-' + name
+  if (shift && event.shiftKey) name = 'Shift-' + name
   return name
 }
 
