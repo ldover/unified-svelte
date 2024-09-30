@@ -603,8 +603,7 @@ export class SvelteList<Y extends ID, T extends Content>
         // If the new selection equals this selection simply clear it, except
         // the option is set to single selection, which has the following UX:
         // when removing from the end shift selection down, otherwise keep selection
-        if (this.options.selection == 'single' && selection.size() == 1) {
-          // TODO: focus the next item
+        if (this.options.selection == 'single' && newItems.length) {
           if (this.items.length == selection.max) {
             newSelection = ListSelection.create([selection.main.shift(-1)])
           } else {
@@ -674,6 +673,16 @@ export class SvelteList<Y extends ID, T extends Content>
       }
     }
 
+    // Move focus to the next list item if focused item was removed (relevant only for 'single' selection option)
+    if (
+      this.options.selection == 'single' &&
+      newSelection &&
+      this.focused &&
+      newItems.indexOf(this.focused) == -1
+    ) {
+      newItems[newSelection.min]?.focus()
+    }
+
     this.update({
       items: newItems,
       selection: newSelection
@@ -685,7 +694,7 @@ export class SvelteList<Y extends ID, T extends Content>
       this.set('selection', selection)
     } else {
       // Check that selection is valid
-      checkSelection(selection, this.items)
+      checkSelection(selection, this.items, this.options)
       this.set('selection', selection)
 
       if (options) {
@@ -875,9 +884,19 @@ function removeRanges<T>(array: T[], ranges: [number, number][]): [T[], T[]] {
   return [result, removedItems]
 }
 
-function checkSelection(selection: ListSelection, items: SvelteListItem<any>[]) {
+function checkSelection(
+  selection: ListSelection,
+  items: SvelteListItem<any>[],
+  options: ListOptions
+) {
   if (selection.max > items.length) {
     throw new RangeError('Selection points outside of array')
+  }
+
+  if (options.selection == 'single' && selection.size() > 1) {
+    throw new RangeError(
+      "Selection must be a single item or null when the selection option is configured as 'single'."
+    )
   }
 }
 
