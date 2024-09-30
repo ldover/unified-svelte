@@ -208,6 +208,35 @@ describe('ListSelection', () => {
     expect(formatSelection(list.selection!)).toBe('0/2')
   })
 
+  it('shifts selection to next item when removing from the end (single selection)', () => {
+    const data = [{ id: '1' }, { id: '2' }, { id: '3' }]
+
+    const list = new SvelteList(data, (item) => ({ content: { id: item.id } }), {
+      selection: 'single'
+    })
+    list.select(ListSelection.create([ListSelection.range(2, 3)]))
+    list.remove('3')
+
+    expect(formatSelection(list.selection!)).toBe('1/2')
+  })
+
+  it('keeps selection after remove (single selection)', () => {
+    const data = [{ id: '1' }, { id: '2' }, { id: '3' }]
+
+    const list = new SvelteList(data, (item) => ({ content: { id: item.id } }), {
+      selection: 'single'
+    })
+    list.select(ListSelection.create([ListSelection.range(1, 2)]))
+    list.remove('2')
+
+    expect(formatSelection(list.selection!)).toBe('1/2')
+  })
+
+  it('moves focus to next item after removing focused item (single selection)', () => {
+    // TODO: test this in Playwright
+    expect(true).toBe(false)
+  })
+
   it('removes the overlapping part of the selection with removeFrom', () => {
     const data = [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }]
 

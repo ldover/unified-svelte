@@ -15,6 +15,7 @@
 
   let list = new SvelteList(data, builder, {
     id: 'simple-list',
+    selection: 'single',
     keymap: [
       {
         key: 'Cmd-Alt-a',
@@ -24,6 +25,7 @@
       }
     ]
   })
+
   let i: number
   let i1: number
 

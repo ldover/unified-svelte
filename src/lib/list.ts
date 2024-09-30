@@ -438,45 +438,52 @@ interface HandlerProps {
   index: number
 }
 
-const defaultKeymap: KeyBinding[] = [
-  {
-    key: 'Cmd-Backspace',
-    run: (list, props) => {
-      // Delete item on CMD+backspace
-      if (list.selection && list.selection.isMultiple()) {
-        list.removeFrom(list.selection)
-      } else {
-        list.removeFrom(props.index)
+const defaultKeymap = (options: ListOptions): KeyBinding[] => {
+  const keybindings: KeyBinding[] = [
+    {
+      key: 'Cmd-Backspace',
+      run: (list, props) => {
+        // Delete item on CMD+backspace
+        if (list.selection && list.selection.isMultiple()) {
+          list.removeFrom(list.selection)
+        } else {
+          list.removeFrom(props.index)
+        }
       }
+    },
+    {
+      key: 'ArrowUp',
+      run: (list) => {
+        list.up()
+        return true
+      },
+      preventDefault: true,
+      stopPropagation: true
+    },
+    {
+      key: 'ArrowDown',
+      run: (list) => {
+        list.down()
+        return true
+      },
+      preventDefault: true,
+      stopPropagation: true
     }
-  },
-  {
-    key: 'ArrowUp',
-    run: (list) => {
-      list.up()
-      return true
-    },
-    preventDefault: true,
-    stopPropagation: true
-  },
-  {
-    key: 'ArrowDown',
-    run: (list) => {
-      list.down()
-      return true
-    },
-    preventDefault: true,
-    stopPropagation: true
-  },
-  {
-    key: 'Meta-a',
-    run: (list) => {
-      list.select(ListSelection.create([ListSelection.range(0, list.items.length)]))
-    },
-    preventDefault: true,
-    stopPropagation: true
+  ]
+
+  if (options.selection == 'multi') {
+    keybindings.push({
+      key: 'Meta-a',
+      run: (list) => {
+        list.select(ListSelection.create([ListSelection.range(0, list.items.length)]))
+      },
+      preventDefault: true,
+      stopPropagation: true
+    })
   }
-]
+
+  return keybindings
+}
 
 // User can pass custom selection logic
 export type Handler<E extends Event> = (
@@ -513,7 +520,7 @@ export class SvelteList<Y extends ID, T extends Content>
     super({ selection: null, items, focused: null, e: null })
     this.options = mergedOptions
     this.listId = this.options.id
-    this.keymap = buildKeymap([...defaultKeymap, ...(this.options.keymap || [])])
+    this.keymap = buildKeymap([...defaultKeymap(mergedOptions), ...(this.options.keymap || [])])
   }
 
   setData(data: Y[]): void {
@@ -593,8 +600,19 @@ export class SvelteList<Y extends ID, T extends Content>
     let newSelection: ListSelection | null = this.selection
     if (newSelection) {
       if (selection.eq(this.selection!)) {
-        // If the passed selection equals this selection simply clear it
-        newSelection = null
+        // If the new selection equals this selection simply clear it, except
+        // the option is set to single selection, which has the following UX:
+        // when removing from the end shift selection down, otherwise keep selection
+        if (this.options.selection == 'single' && selection.size() == 1) {
+          // TODO: focus the next item
+          if (this.items.length == selection.max) {
+            newSelection = ListSelection.create([selection.main.shift(-1)])
+          } else {
+            newSelection = selection
+          }
+        } else {
+          newSelection = null
+        }
       } else {
         // Otherwise update selection — subtracting this.selection - selection, range by range
         for (const range of selection.ranges) {

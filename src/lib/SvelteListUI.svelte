@@ -35,7 +35,7 @@
   let selected: Set<number> = new Set()
   list.afterSet('selection', computeSelected)
 
-  const defaultSelectionHandler: Handler<MouseEvent> = function (e, props) {
+  const defaultSelectionHandlerMulti: Handler<MouseEvent> = function (e, props) {
     const index = props.index
     let newSelection: ListSelection | null = null
     if (e.metaKey && this.selection) {
@@ -62,6 +62,12 @@
     }
   }
 
+  const defaultSelectionHandlerSingle: Handler<MouseEvent> = function (e, props) {
+    if (!e.metaKey && !e.shiftKey) {
+      this.select(ListSelection.single(props.index))
+    }
+  }
+
   const handleClick: Handler<MouseEvent> = function handleClick(event, props) {
     if (list.options.onSelect) {
       list.options.onSelect.call(list, event, props)
@@ -69,7 +75,12 @@
         return
       }
     }
-    defaultSelectionHandler.call(list, event, props)
+
+    const selector =
+      this.options.selection == 'multi'
+        ? defaultSelectionHandlerMulti
+        : defaultSelectionHandlerSingle
+    selector.call(list, event, props)
   }
 
   const handleKeydown: Handler<KeyboardEvent> = (e, props) => {
