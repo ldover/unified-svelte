@@ -166,7 +166,7 @@ export class ListSelection {
   }
 
   /**
-   * Returns true if there are multiple selection ranges in the current selection
+   * Returns true if there are multiple items in selection
    */
   isMultiple(): boolean {
     if (this.ranges.length == 1) {
@@ -736,6 +736,14 @@ export class SvelteList<Y extends ID, T extends Content>
     return this.getProp('focused')
   }
 
+  get selected(): SvelteListItem<T>[] {
+    if (this.selection) {
+      return this.selection.pick(this.items)
+    }
+
+    return []
+  }
+
   private _addId(...items: SvelteListItem<T>[]) {
     items.forEach((item) => {
       if (this._ids.has(item.id)) {
@@ -744,6 +752,7 @@ export class SvelteList<Y extends ID, T extends Content>
         )
       }
     })
+    items.forEach((item) => this._ids.add(item.id))
   }
 
   private _removeId(...items: SvelteListItem<T>[]) {

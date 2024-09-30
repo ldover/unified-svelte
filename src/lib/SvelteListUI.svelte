@@ -12,7 +12,18 @@
   let e: HTMLElement
   onMount(() => {
     list.setElement(e)
+    computeSelected(list.selection, null)
   })
+
+  const computeSelected = (selection: ListSelection | null, prev: ListSelection | null) => {
+    if (selection) {
+      if (!prev || (prev && !selection.eq(prev))) {
+        selected = new Set($list.selection ? fromSelection($list.selection) : [])
+      }
+    } else {
+      selected = new Set()
+    }
+  }
 
   const fromSelection = (selection: ListSelection) => {
     const indices = Array.from({ length: list.items.length }, (_, index) => index)
@@ -22,15 +33,7 @@
   }
 
   let selected: Set<number> = new Set()
-  list.afterSet('selection', (selection, prev) => {
-    if (selection) {
-      if (!prev || (prev && !selection.eq(prev))) {
-        selected = new Set($list.selection ? fromSelection($list.selection) : [])
-      }
-    } else {
-      selected = new Set()
-    }
-  })
+  list.afterSet('selection', computeSelected)
 
   const defaultSelectionHandler: Handler<MouseEvent> = function (e, props) {
     const index = props.index
@@ -60,8 +63,13 @@
   }
 
   const handleClick: Handler<MouseEvent> = function handleClick(event, props) {
-    const selector = list.options.onSelect ? list.options.onSelect : defaultSelectionHandler
-    selector.call(list, event, props)
+    if (list.options.onSelect) {
+      list.options.onSelect.call(list, event, props)
+      if (event.defaultPrevented) {
+        return
+      }
+    }
+    defaultSelectionHandler.call(list, event, props)
   }
 
   const handleKeydown: Handler<KeyboardEvent> = (e, props) => {
