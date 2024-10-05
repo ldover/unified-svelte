@@ -15,15 +15,15 @@
 
   let list = new SvelteList(data, builder, {
     id: 'simple-list',
-    selection: 'single',
-    keymap: [
-      {
-        key: 'Cmd-Alt-a',
-        run: (list) => {
-          list.selection?.pick(list.items).forEach((item) => console.log('archive', item))
+    selection: 'multi',
+    handlers: {
+      keydown: function (e) {
+        if (e.metaKey && e.key == 'a' && e.shiftKey) {
+          this.selection?.pick(this.items).forEach((item) => console.log('archive', item))
+          return true
         }
       }
-    ]
+    }
   })
 
   let i: number

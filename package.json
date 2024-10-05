@@ -1,6 +1,6 @@
 {
   "name": "tree",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "scripts": {
     "dev": "vite dev",
     "pack": "vite build && npm run package && npm pack",
@@ -55,8 +55,5 @@
   },
   "svelte": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "type": "module",
-  "dependencies": {
-    "w3c-keyname": "^2.2.8"
-  }
+  "type": "module"
 }

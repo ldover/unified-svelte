@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ListSelection, type Handler, type SvelteList, runHandlers } from '$lib/list.js'
+  import { ListSelection, type Handler, type SvelteList } from '$lib/list.js'
   import SvelteListItemUI from '$lib/SvelteListItemUI.svelte'
   import { onMount, setContext } from 'svelte'
 
@@ -35,16 +35,24 @@
   let selected: Set<number> = new Set()
   list.afterSet('selection', computeSelected)
 
+  type Modifier = 'shiftKey' | 'ctrlKey' | 'altKey' | 'metaKey'
+  const modifiers: Modifier[] = ['shiftKey', 'ctrlKey', 'altKey', 'metaKey']
+
+  const onlyModifier = (e: KeyboardEvent | MouseEvent, modifier: Modifier) =>
+    modifiers.every((m) => (m == modifier ? e[m] : !e[m]))
+
+  const anyModifiers = (e: KeyboardEvent | MouseEvent) => modifiers.some((m) => e[m])
+
   const defaultSelectionHandlerMulti: Handler<MouseEvent> = function (e, props) {
     const index = props.index
-    let newSelection: ListSelection | null = null
-    if (e.metaKey && this.selection) {
+    let newSelection: ListSelection | null | undefined = undefined
+    if (onlyModifier(e, 'metaKey') && this.selection) {
       if (!this.selection.contains(index)) {
         newSelection = this.selection.addRange(ListSelection.range(index, index + 1))
       } else {
         newSelection = this.selection.splitRange(index)
       }
-    } else if (e.shiftKey) {
+    } else if (onlyModifier(e, 'shiftKey')) {
       if (this.selection) {
         newSelection = this.selection.replaceRange(
           this.selection.main.extend(index),
@@ -53,27 +61,24 @@
       } else {
         newSelection = ListSelection.create([ListSelection.range(0, index)])
       }
-    } else {
+    } else if (!anyModifiers(e)) {
       newSelection = ListSelection.single(index)
     }
 
-    if (newSelection) {
+    if (newSelection !== undefined) {
       this.select(newSelection)
     }
   }
 
   const defaultSelectionHandlerSingle: Handler<MouseEvent> = function (e, props) {
-    if (!e.metaKey && !e.shiftKey) {
+    if (!anyModifiers(e)) {
       this.select(ListSelection.single(props.index))
     }
   }
 
   const handleClick: Handler<MouseEvent> = function handleClick(event, props) {
-    if (list.options.onSelect) {
-      list.options.onSelect.call(list, event, props)
-      if (event.defaultPrevented) {
-        return
-      }
+    if (list.options.handlers?.click?.call(list, event, props)) {
+      return
     }
 
     const selector =
@@ -83,10 +88,39 @@
     selector.call(list, event, props)
   }
 
-  const handleKeydown: Handler<KeyboardEvent> = (e, props) => {
-    if (runHandlers(list.keymap, e, list, props)) {
-      e.preventDefault()
+  const defaultKeydownHandler: Handler<KeyboardEvent> = function (e, props) {
+    e.preventDefault() // Prevents scroll of the list view on up/down navigation
+
+    if (onlyModifier(e, 'metaKey') && e.key === 'Backspace') {
+      // Delete item on CMD+backspace
+      if (this.selection && this.selection.isMultiple()) {
+        this.removeFrom(this.selection)
+      } else {
+        this.removeFrom(props.index)
+      }
+    } else if (e.key == 'ArrowUp') {
+      if (!anyModifiers(e)) {
+        this.up()
+      } else if (onlyModifier(e, 'altKey')) {
+        this.select(ListSelection.single(0))
+      }
+    } else if (e.key == 'ArrowDown') {
+      if (!anyModifiers(e)) {
+        this.down()
+      } else if (onlyModifier(e, 'altKey')) {
+        this.select(ListSelection.single(this.items.length - 1))
+      }
+    } else if (e.key == 'a' && onlyModifier(e, 'metaKey') && this.options.selection == 'multi') {
+      this.select(ListSelection.create([ListSelection.range(0, this.items.length)]))
     }
+  }
+
+  const handleKeydown: Handler<KeyboardEvent> = (e, props) => {
+    if (list.options.handlers?.keydown?.call(list, e, props)) {
+      return
+    }
+
+    defaultKeydownHandler.call(list, e, props)
   }
 
   const handleFocus: Handler<FocusEvent> = function (event, props) {

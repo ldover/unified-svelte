@@ -1,5 +1,3 @@
-import { base, shift, keyName } from 'w3c-keyname'
-
 import { SvelteReactiveComponent } from './reactive.js'
 import { inView, insert, mergeOptions } from './util.js'
 
@@ -428,9 +426,11 @@ type ListItemBuilder<Y, T> = (item: Y) => ListItemData<T>
 interface ListOptions {
   id: string // optional list id
   focusOn: 'click' | 'mousedown' // default focus on click (although might be more web-native if focus on 'mousedown' is default)
-  keymap?: KeyBinding[] // custom key bindings
   selection: 'multi' | 'single'
-  onSelect?: Handler<MouseEvent>
+  handlers?: {
+    click?: Handler<MouseEvent>
+    keydown?: Handler<KeyboardEvent>
+  }
 }
 
 interface HandlerProps {
@@ -438,59 +438,16 @@ interface HandlerProps {
   index: number
 }
 
-const defaultKeymap = (options: ListOptions): KeyBinding[] => {
-  const keybindings: KeyBinding[] = [
-    {
-      key: 'Cmd-Backspace',
-      run: (list, props) => {
-        // Delete item on CMD+backspace
-        if (list.selection && list.selection.isMultiple()) {
-          list.removeFrom(list.selection)
-        } else {
-          list.removeFrom(props.index)
-        }
-      }
-    },
-    {
-      key: 'ArrowUp',
-      run: (list) => {
-        list.up()
-        return true
-      },
-      preventDefault: true,
-      stopPropagation: true
-    },
-    {
-      key: 'ArrowDown',
-      run: (list) => {
-        list.down()
-        return true
-      },
-      preventDefault: true,
-      stopPropagation: true
-    }
-  ]
-
-  if (options.selection == 'multi') {
-    keybindings.push({
-      key: 'Meta-a',
-      run: (list) => {
-        list.select(ListSelection.create([ListSelection.range(0, list.items.length)]))
-      },
-      preventDefault: true,
-      stopPropagation: true
-    })
-  }
-
-  return keybindings
-}
-
-// User can pass custom selection logic
+/**
+ * Interface for DOM handlers: click, keydown.
+ *
+ * To prevent the default behavior of list selection handler should return true.
+ */
 export type Handler<E extends Event> = (
   this: SvelteList<any, any>,
   event: E,
   props: HandlerProps
-) => void
+) => boolean | void
 
 function defaultOptions(): ListOptions {
   return {
@@ -508,7 +465,6 @@ export class SvelteList<Y extends ID, T extends Content>
 
   private _ids = new Set<string>()
   public readonly options: ListOptions
-  public keymap: Keymap
 
   constructor(
     data: Y[],
@@ -520,7 +476,6 @@ export class SvelteList<Y extends ID, T extends Content>
     super({ selection: null, items, focused: null, e: null })
     this.options = mergedOptions
     this.listId = this.options.id
-    this.keymap = buildKeymap([...defaultKeymap(mergedOptions), ...(this.options.keymap || [])])
   }
 
   setData(data: Y[]): void {
@@ -898,195 +853,4 @@ function checkSelection(
       "Selection must be a single item or null when the selection option is configured as 'single'."
     )
   }
-}
-
-///
-/// Keymap
-/// Adapted from CodeMirror's keymap.ts: https://github.com/codemirror/view/blob/154c03bd27b9148c6a1bdff16b3b7946509a0bf6/src/keymap.ts#L118
-///
-
-const nav: any =
-  typeof navigator != 'undefined' ? navigator : { userAgent: '', vendor: '', platform: '' }
-
-const browser = {
-  mac: /Mac/.test(nav.platform),
-  windows: /Win/.test(nav.platform),
-  linux: /Linux|X11/.test(nav.platform)
-}
-
-function surrogateLow(ch: number) {
-  return ch >= 0xdc00 && ch < 0xe000
-}
-function surrogateHigh(ch: number) {
-  return ch >= 0xd800 && ch < 0xdc00
-}
-
-// Find the code point at the given position in a string (like the
-// [`codePointAt`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/codePointAt)
-// string method).
-export function codePointAt(str: string, pos: number) {
-  const code0 = str.charCodeAt(pos)
-  if (!surrogateHigh(code0) || pos + 1 == str.length) return code0
-  const code1 = str.charCodeAt(pos + 1)
-  if (!surrogateLow(code1)) return code0
-  return ((code0 - 0xd800) << 10) + (code1 - 0xdc00) + 0x10000
-}
-
-// The amount of positions a character takes up a JavaScript string.
-export function codePointSize(code: number): 1 | 2 {
-  return code < 0x10000 ? 1 : 2
-}
-
-type Command = (list: SvelteList<any, any>, props: HandlerProps) => void
-
-// Key codes for modifier keys
-export const modifierCodes = [16, 17, 18, 20, 91, 92, 224, 225]
-
-/*
-  Key bindings associate key names with command-style functions.
-
-  Key names are strings like `"Ctrl-Enter-a"`, consisting of a key identifier 
-  prefixed with zero or more modifiers. Key identifiers are based on the strings 
-  that can appear in 
-  [`KeyEvent.key`](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key).
-  Use lowercase letters to refer to letter keys, or uppercase letters if you want
-   `Shift` to be held. You may use `"Space"` as an alias for `" "`.
-
-  Modifiers can be provided in any order. The recognized modifiers are:
-  - `Shift-` (or `s-`)
-  - `Alt-` (or `a-`)
-  - `Ctrl-` (or `c-` or `Control-`)
-  - `Cmd-` (or `m-` or `Meta-`)
-
-  You can use `Mod-` as a platform-independent shorthand for `Cmd-` on macOS 
-  and `Ctrl-` on other platforms. For example, `Mod-b` would be `Ctrl-b` on Linux 
-  and `Cmd-b` on macOS.
-*/
-export interface KeyBinding {
-  /** The key name to use for this binding. */
-  key: string
-  /** The command to execute when this binding is triggered. */
-  run: Command
-  /** When set to true, prevents the default action for this key. */
-  preventDefault?: boolean
-  /** When set to true, stops further propagation of the key event. */
-  stopPropagation?: boolean
-}
-type PlatformName = 'mac' | 'win' | 'linux' | 'key'
-
-const currentPlatform: PlatformName = browser.mac
-  ? 'mac'
-  : browser.windows
-    ? 'win'
-    : browser.linux
-      ? 'linux'
-      : 'key'
-
-function normalizeKeyName(name: string, platform: PlatformName): string {
-  const parts = name.split(/-(?!$)/)
-  let result = parts[parts.length - 1]
-  if (result == 'Space') result = ' '
-  let alt, ctrl, shift, meta
-  for (let i = 0; i < parts.length - 1; ++i) {
-    const mod = parts[i]
-    if (/^(cmd|meta|m)$/i.test(mod)) meta = true
-    else if (/^a(lt)?$/i.test(mod)) alt = true
-    else if (/^(c|ctrl|control)$/i.test(mod)) ctrl = true
-    else if (/^s(hift)?$/i.test(mod)) shift = true
-    else if (/^mod$/i.test(mod)) {
-      if (platform == 'mac') meta = true
-      else ctrl = true
-    } else throw new Error('Unrecognized modifier name: ' + mod)
-  }
-  if (alt) result = 'Alt-' + result
-  if (ctrl) result = 'Ctrl-' + result
-  if (meta) result = 'Meta-' + result
-  if (shift) result = 'Shift-' + result
-  return result
-}
-
-function modifiers(name: string, event: KeyboardEvent, shift: boolean) {
-  if (event.altKey) name = 'Alt-' + name
-  if (event.ctrlKey) name = 'Ctrl-' + name
-  if (event.metaKey) name = 'Meta-' + name
-  if (shift && event.shiftKey) name = 'Shift-' + name
-  return name
-}
-
-type Binding = {
-  preventDefault: boolean
-  stopPropagation: boolean
-  run: Command
-}
-
-type Keymap = { [key: string]: Binding }
-
-export function buildKeymap(bindings: readonly KeyBinding[], platform = currentPlatform) {
-  const bound: Keymap = Object.create(null)
-
-  for (const b of bindings) {
-    const normalizedKey = normalizeKeyName(b.key, platform) // Normalize the single key name
-    bound[normalizedKey] = {
-      run: b.run,
-      preventDefault: b.preventDefault !== undefined ? b.preventDefault : false,
-      stopPropagation: b.stopPropagation !== undefined ? b.stopPropagation : false
-    }
-  }
-
-  return bound
-}
-
-/**
- * Run the key handlers
- *
- * The event object should be a `"keydown"` event. Returns true if any of the
- * handlers handled it.
- */
-export function runHandlers(
-  map: Keymap,
-  event: KeyboardEvent,
-  list: SvelteList<any, any>,
-  props: HandlerProps
-) {
-  const name = keyName(event)
-  const charCode = codePointAt(name, 0)
-  const isChar = codePointSize(charCode) == name.length && name != ' '
-
-  let m: Binding | undefined = map[modifiers(name, event, !isChar)]
-
-  if (
-    !m &&
-    isChar &&
-    (event.altKey || event.metaKey || event.ctrlKey) &&
-    !(browser.windows && event.ctrlKey && event.altKey) &&
-    base[event.keyCode] &&
-    base[event.keyCode] != name
-  ) {
-    m = map[modifiers(base[event.keyCode], event, true)]
-    if (
-      !m &&
-      event.shiftKey &&
-      shift[event.keyCode] != name &&
-      shift[event.keyCode] != base[event.keyCode]
-    ) {
-      m = map[modifiers(shift[event.keyCode], event, false)]
-    }
-  } else if (isChar && event.shiftKey) {
-    m = map[modifiers(name, event, true)]
-  }
-
-  if (m) {
-    m.run(list, props)
-    if (m.stopPropagation) {
-      event.stopPropagation()
-    }
-
-    if (m.preventDefault) {
-      event.preventDefault()
-    }
-
-    return true
-  }
-
-  return false
 }
