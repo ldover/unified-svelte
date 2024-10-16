@@ -15,11 +15,11 @@
   export let last: boolean
 
   onMount(() => {
-    item.mount && item.mount()
+    item.mount()
   })
 
   onDestroy(() => {
-    item.destroy && item.destroy()
+    item.destroy()
   })
 </script>
 

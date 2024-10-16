@@ -480,6 +480,7 @@ export class SvelteList<Y extends ID, T extends Content>
 
   setData(data: Y[]): void {
     this._ids.clear()
+    destroy(...this.items)
     const items = buildItems(data, this.builder, this.listId)
     this._addId(...items)
     // Reset selection when reseting the list
@@ -550,6 +551,7 @@ export class SvelteList<Y extends ID, T extends Content>
       selection.ranges.map((r) => r.indices())
     )
 
+    destroy(...removedItems)
     this._removeId(...removedItems)
 
     let newSelection: ListSelection | null = this.selection
@@ -760,6 +762,9 @@ export interface Content extends ID {
 export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
   SvelteListItemProps<T>
 > {
+
+  private _mounted: boolean = false
+
   constructor(id: string, content: T, options: Partial<ListItemOptions>) {
     const merged: ListItemOptions = mergeOptions(
       {
@@ -802,11 +807,15 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
   }
 
   mount(): void {
-    if (this.content.mount) this.content.mount()
+    if (!this._mounted) {
+      this.content.mount?.()
+    }
   }
 
   destroy(): void {
-    if (this.content.destroy) this.content.destroy()
+    if (this._mounted) {
+      this.content.destroy?.()
+    }
   }
 }
 
@@ -853,4 +862,13 @@ function checkSelection(
       "Selection must be a single item or null when the selection option is configured as 'single'."
     )
   }
+}
+
+/**
+ * Destroy list items.
+ * Note: Svelte onDestroy (in ListItem.svelte) doesn't seem to trigger every time, so we do it here
+ *
+ * */
+function destroy(...items: SvelteListItem<any>[]) {
+  items.forEach(item => item.destroy())
 }

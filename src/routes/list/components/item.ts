@@ -18,6 +18,9 @@ export class ItemImpl implements Item {
     }
   }
 
-  destroy(): void {}
-  destroy(): void {}
+  destroy(): void {
+  }
+
+  mount(): void {
+  }
 }
