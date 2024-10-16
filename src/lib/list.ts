@@ -809,12 +809,14 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
   mount(): void {
     if (!this._mounted) {
       this.content.mount?.()
+      this._mounted = true
     }
   }
 
   destroy(): void {
     if (this._mounted) {
       this.content.destroy?.()
+      this._mounted = false
     }
   }
 }
