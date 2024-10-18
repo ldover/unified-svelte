@@ -482,6 +482,9 @@ export class SvelteList<Y extends ID, T extends Content>
     this._ids.clear()
     destroy(...this.items)
     const items = buildItems(data, this.builder, this.listId)
+    // todo: calling mount() and destroy() is a patch — for sometimes the Content.mount/destroy don't get called
+    //  and I don't know the reason. While I use keyed each block I suspect I still don't understand something about Svelte .
+    items.forEach(item => item.mount())  
     this._addId(...items)
     // Reset selection when reseting the list
     this.update({ items, selection: null })
