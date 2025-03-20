@@ -102,13 +102,13 @@
       if (!anyModifiers(e)) {
         this.up()
       } else if (onlyModifier(e, 'altKey')) {
-        this.select(ListSelection.single(0), {scrollIntoView: true})
+        this.select(ListSelection.single(0), { scrollIntoView: true })
       }
     } else if (e.key == 'ArrowDown') {
       if (!anyModifiers(e)) {
         this.down()
       } else if (onlyModifier(e, 'altKey')) {
-        this.select(ListSelection.single(this.items.length - 1), {scrollIntoView: true})
+        this.select(ListSelection.single(this.items.length - 1), { scrollIntoView: true })
       }
     } else if (e.key == 'a' && onlyModifier(e, 'metaKey') && this.options.selection == 'multi') {
       this.select(ListSelection.create([ListSelection.range(0, this.items.length)]))

@@ -4,10 +4,8 @@ import {
   SvelteListItem,
   type Content,
   SelectionRange,
-  runHandlers,
-  buildKeymap
 } from './lib/list.js'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 const formatSelection = (sel: ListSelection) =>
   sel.ranges.map((r) => r.anchor + '/' + r.head).join(',')

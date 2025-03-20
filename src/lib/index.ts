@@ -8,7 +8,14 @@ export {
   type TreeOptions
 } from './tree.js'
 
-export { SvelteList, SvelteListItem, type List, ListSelection, SelectionRange, type Content } from './list.js'
+export {
+  SvelteList,
+  SvelteListItem,
+  ListSelection,
+  SelectionRange,
+  type List,
+  type Content
+} from './list.js'
 
 export { default as SvelteTreeNodeUI } from './SvelteTreeNodeUI.svelte'
 export { default as SvelteTreeUI } from './SvelteTreeUI.svelte'

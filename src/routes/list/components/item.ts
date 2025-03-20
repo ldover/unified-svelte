@@ -4,6 +4,8 @@ export interface Item extends Content {
   name: string
 }
 
+let mounted = 0
+
 export class ItemImpl implements Item {
   public name: string
 
@@ -19,8 +21,12 @@ export class ItemImpl implements Item {
   }
 
   destroy(): void {
+    mounted--
+    console.log({ mounted })
   }
 
   mount(): void {
+    mounted++
+    console.log({ mounted })
   }
 }

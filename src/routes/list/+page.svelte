@@ -9,11 +9,13 @@
     options: { component: BasicListItemUi }
   })
 
-  let data = [...new Array(20)].map((_, i) => ({
-    id: i + ''
-  }))
+  function data(num: number) {
+    return [...new Array(num)].map((_, i) => ({
+      id: i + ''
+    }))
+  }
 
-  let list = new SvelteList(data, builder, {
+  let list = new SvelteList(data(20), builder, {
     id: 'simple-list',
     selection: 'multi',
     handlers: {
@@ -51,6 +53,7 @@
   <div class="">Selected: {renderSelection($list.selection)}</div>
   <div class="">Main: {$list.selection?.mainIndex}</div>
   <div class="">
+    <button on:click={() => list.setData(data(Math.round(Math.random() * 100)))}>Refresh</button>
     <button disabled={!i} on:click={() => list.insert({ id: 'X' + Math.random() * 1000 }, i)}
       >Insert</button
     >

@@ -412,12 +412,19 @@ interface ListItemData<T extends Content> {
 const buildItems = <Y extends ID, T extends Content>(
   data: Y[],
   builder: ListItemBuilder<Y, T>,
-  listId: string
+  listId: string,
+  cache: Map<string, SvelteListItem<T>>
 ) => {
   return data.map((d) => {
     const id = `${listId}-${d.id}`
+    let item = cache.get(id)
+    if (item) {
+      return item
+    }
     const { content, options = {} } = builder(d)
-    return new SvelteListItem(id, content, options)
+    item = new SvelteListItem(id, content, options)
+    cache.set(id, item)
+    return item
   })
 }
 
@@ -464,6 +471,8 @@ export class SvelteList<Y extends ID, T extends Content>
   public listId: string
 
   private _ids = new Set<string>()
+  private _cache: Map<string, SvelteListItem<T>>
+
   public readonly options: ListOptions
 
   constructor(
@@ -472,26 +481,24 @@ export class SvelteList<Y extends ID, T extends Content>
     options: Partial<ListOptions> = {}
   ) {
     const mergedOptions = mergeOptions(defaultOptions(), options)
-    const items = buildItems(data, builder, mergedOptions.id)
+    const cache = new Map<string, SvelteListItem<T>>()
+    const items = buildItems(data, builder, mergedOptions.id, cache)
     super({ selection: null, items, focused: null, e: null })
+    this._cache = cache
     this.options = mergedOptions
     this.listId = this.options.id
   }
 
   setData(data: Y[]): void {
     this._ids.clear()
-    destroy(...this.items)
-    const items = buildItems(data, this.builder, this.listId)
-    // todo: calling mount() and destroy() is a patch — for sometimes the Content.mount/destroy don't get called
-    //  and I don't know the reason. While I use keyed each block I suspect I still don't understand something about Svelte .
-    items.forEach(item => item.mount())  
+    const items = buildItems(data, this.builder, this.listId, this._cache)
     this._addId(...items)
     // Reset selection when reseting the list
     this.update({ items, selection: null })
   }
 
   add(item: Y): void {
-    const newItem = buildItems([item], this.builder, this.listId)[0]
+    const newItem = buildItems([item], this.builder, this.listId, this._cache)[0]
     this._addId(newItem)
     this.set('items', [...this.items, newItem])
   }
@@ -501,7 +508,7 @@ export class SvelteList<Y extends ID, T extends Content>
       throw new Error('Index out of bounds')
     }
 
-    const newItem = buildItems([item], this.builder, this.listId)[0]
+    const newItem = buildItems([item], this.builder, this.listId, this._cache)[0]
     this._addId(newItem)
     const items = insert(this.items, newItem, i)
 
@@ -554,7 +561,6 @@ export class SvelteList<Y extends ID, T extends Content>
       selection.ranges.map((r) => r.indices())
     )
 
-    destroy(...removedItems)
     this._removeId(...removedItems)
 
     let newSelection: ListSelection | null = this.selection
@@ -765,7 +771,6 @@ export interface Content extends ID {
 export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
   SvelteListItemProps<T>
 > {
-
   private _mounted: boolean = false
 
   constructor(id: string, content: T, options: Partial<ListItemOptions>) {
@@ -867,13 +872,4 @@ function checkSelection(
       "Selection must be a single item or null when the selection option is configured as 'single'."
     )
   }
-}
-
-/**
- * Destroy list items.
- * Note: Svelte onDestroy (in ListItem.svelte) doesn't seem to trigger every time, so we do it here
- *
- * */
-function destroy(...items: SvelteListItem<any>[]) {
-  items.forEach(item => item.destroy())
 }
