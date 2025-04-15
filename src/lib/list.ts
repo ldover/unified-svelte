@@ -413,17 +413,21 @@ const buildItems = <Y extends ID, T extends Content>(
   data: Y[],
   builder: ListItemBuilder<Y, T>,
   listId: string,
-  cache: Map<string, SvelteListItem<T>>
+  cache: Map<string, SvelteListItem<T>>,
+  useCache: boolean
 ) => {
   return data.map((d) => {
     const id = `${listId}-${d.id}`
-    let item = cache.get(id)
-    if (item) {
-      return item
+    let item: SvelteListItem<T>
+    if (useCache) {
+      let item = cache.get(id)
+      if (item) {
+        return item
+      }
     }
     const { content, options = {} } = builder(d)
     item = new SvelteListItem(id, content, options)
-    cache.set(id, item)
+    useCache && cache.set(id, item)
     return item
   })
 }
@@ -432,6 +436,7 @@ type ListItemBuilder<Y, T> = (item: Y) => ListItemData<T>
 
 interface ListOptions {
   id: string // optional list id
+  cache: boolean 
   focusOn: 'click' | 'mousedown' // default focus on click (although might be more web-native if focus on 'mousedown' is default)
   selection: 'multi' | 'single'
   handlers?: {
@@ -460,7 +465,8 @@ function defaultOptions(): ListOptions {
   return {
     id: `list-${Math.round(Math.random() * 100000)}`,
     focusOn: 'click', // todo: implement
-    selection: 'multi' // todo: implemente
+    selection: 'multi', // todo: implemente
+    cache: true
   }
 }
 
@@ -472,6 +478,7 @@ export class SvelteList<Y extends ID, T extends Content>
 
   private _ids = new Set<string>()
   private _cache: Map<string, SvelteListItem<T>>
+  private _useCache: boolean
 
   public readonly options: ListOptions
 
@@ -482,8 +489,9 @@ export class SvelteList<Y extends ID, T extends Content>
   ) {
     const mergedOptions = mergeOptions(defaultOptions(), options)
     const cache = new Map<string, SvelteListItem<T>>()
-    const items = buildItems(data, builder, mergedOptions.id, cache)
+    const items = buildItems(data, builder, mergedOptions.id, cache, mergedOptions.cache)
     super({ selection: null, items, focused: null, e: null })
+    this._useCache = mergedOptions.cache
     this._cache = cache
     this.options = mergedOptions
     this.listId = this.options.id
@@ -491,14 +499,14 @@ export class SvelteList<Y extends ID, T extends Content>
 
   setData(data: Y[]): void {
     this._ids.clear()
-    const items = buildItems(data, this.builder, this.listId, this._cache)
+    const items = buildItems(data, this.builder, this.listId, this._cache, this._useCache)
     this._addId(...items)
     // Reset selection when reseting the list
     this.update({ items, selection: null })
   }
 
   add(item: Y): void {
-    const newItem = buildItems([item], this.builder, this.listId, this._cache)[0]
+    const newItem = buildItems([item], this.builder, this.listId, this._cache, this._useCache)[0]
     this._addId(newItem)
     this.set('items', [...this.items, newItem])
   }
@@ -508,7 +516,7 @@ export class SvelteList<Y extends ID, T extends Content>
       throw new Error('Index out of bounds')
     }
 
-    const newItem = buildItems([item], this.builder, this.listId, this._cache)[0]
+    const newItem = buildItems([item], this.builder, this.listId, this._cache, this._useCache)[0]
     this._addId(newItem)
     const items = insert(this.items, newItem, i)
 
