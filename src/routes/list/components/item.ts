@@ -23,11 +23,9 @@ export class ItemImpl implements Item {
 
   destroy(): void {
     mounted--
-    console.log({ mounted })
   }
 
   mount(): void {
     mounted++
-    console.log({ mounted })
   }
 }

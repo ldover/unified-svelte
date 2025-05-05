@@ -14,6 +14,7 @@
   onMount(() => {
     list.setElement(e)
     computeSelected(list.selection, null)
+    clearBar()
   })
 
   const computeSelected = (selection: ListSelection | null, prev: ListSelection | null) => {
@@ -131,9 +132,68 @@
   const handleBlur: Handler<FocusEvent> = function () {
     list.set('focused', null)
   }
+
+  
+  let bar: HTMLDivElement;        // the slim horizontal line
+  let barY = -9999;               // hidden off‑screen
+
+  /* helper – converts clientY to an offset within e */
+  function yRelative(clientY: number) {
+    const { top } = e.getBoundingClientRect();
+    return clientY - top + e.scrollTop;
+  }
+
+  /* DRAG‑OVER — runs ~60 fps */
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();           // allow drop
+
+    // 1. find which item we’re over
+    const el = (e.target as HTMLElement).closest('[data-idx]');
+    if (!el) return;
+
+    const idx   = +el.dataset.idx!;
+    const rect  = el.getBoundingClientRect();
+    const midY  = rect.top + rect.height / 2;
+
+    // 2. compute target position *between* items
+    const above = e.clientY < midY;
+    const offset = above ? rect.top : rect.bottom;
+
+    barY = yRelative(offset);
+    bar.style.transform = `translateY(${barY}px)`;
+
+    // 3. remember for drop (optional)
+    currentTargetIndex = idx
+  }
+
+  function clearBar() {
+    bar.style.transform = 'translateY(-9999px)';
+    currentTargetIndex = null;
+  }
+
+  /* -- DROP ---------------------------------------------------------- */
+  let currentTargetIndex: number | null = null;
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    if (currentTargetIndex == null) return;
+
+    /* Retrieve source selection */
+    const data = e.dataTransfer?.getData('application/x-listselection');
+    if (!data) return;
+    const sel  = ListSelection.fromIndices(JSON.parse(data));
+
+    list.move(sel!, currentTargetIndex);
+    clearBar();
+  }
 </script>
 
-<div bind:this={e} class={classes.join(' ')} {style}>
+<div bind:this={e}  
+on:dragover={handleDragOver}
+on:dragleave={clearBar}
+on:drop={handleDrop}
+      class={classes.join(' ')} {style}>
+  <div bind:this={bar} class="bar"></div>
   {#each $list.items as item, i (item.id)}
     <SvelteListItemUI
       on:click={(e) => handleClick.call(list, e, { item, index: i })}
@@ -156,8 +216,18 @@
 <style>
   div {
     display: flex;
+    position: relative;
     flex-direction: column;
     overflow-y: auto;
     height: 100%;
   }
+
+  .bar     {
+    position:absolute; left:0; right:0;
+    height:0;
+    border-top:2px solid var(--accent, dodgerblue);
+    pointer-events:none; z-index:10;
+    transition: transform 40ms linear;
+  }
+
 </style>

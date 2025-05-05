@@ -1,7 +1,7 @@
 <!-- lib/SvelteListItemUI.svelte -->
 <script lang="ts">
-  import { type SvelteListItem } from '$lib/list.js'
-  import { onDestroy, onMount } from 'svelte'
+  import { ListSelection, SvelteList, type SvelteListItem } from '$lib/list.js'
+  import { getContext, onDestroy, onMount } from 'svelte'
   import { focusOnClick } from './actions/focusOnClick.js'
 
   export let item: SvelteListItem<any>
@@ -15,6 +15,8 @@
   export let first: boolean
   export let last: boolean
 
+  let list: SvelteList<any, any> = getContext('list')
+  
   onMount(() => {
     item.mount()
   })
@@ -22,9 +24,35 @@
   onDestroy(() => {
     item.destroy()
   })
+
+  function onDragStart(e: DragEvent) {
+  const sel = list.selection?.contains(index)
+    ? list.selection           // drag currently selected block
+    : ListSelection.single(index)
+  // serialise -> store on dataTransfer
+  e.dataTransfer!.setData(
+    'application/x-listselection',
+    JSON.stringify(sel.indices())   // store raw indices
+  )
+  e.dataTransfer!.effectAllowed = 'move'
+
+  /* optional “ghost” */
+  const img = document.createElement('div')
+  img.textContent = `${sel.size()} item${sel.size() > 1 ? 's' : ''}`
+  img.style.cssText = 'padding:4px 8px;background:#444;color:white;border-radius:4px;'
+  document.body.appendChild(img)
+  e.dataTransfer!.setDragImage(img, -10, -10)
+  setTimeout(()=>img.remove(),0)
+}
 </script>
 
-<button id={item.id} use:focusOnClick on:click on:focus on:blur on:keydown>
+
+<!-- todo: figure out what to do with  use:focusOnClick  -->
+<button id={item.id} 
+data-idx={index} 
+draggable="true"
+on:dragstart={onDragStart}
+on:click on:focus on:blur on:keydown>
   <svelte:component
     this={$item.component}
     {index}
