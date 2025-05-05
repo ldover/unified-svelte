@@ -52,10 +52,10 @@
 
   function handleMove() {
     const selection = list.getProp('selection')
-    if (selection && i1 != undefined) {
-      list.move(selection, i1)
-    } else if (i && i1) {
+    if (i && i1) {
       list.move(i, i1)
+    } else if (selection && i1 != undefined) {
+      list.move(selection, i1)
     }
   }
 </script>
