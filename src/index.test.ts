@@ -419,76 +419,106 @@ describe('SvelteList.move', () => {
       (item) => ({ content: { id: item.id } })
     )
 
-  it('moves a single item downwards and re‑selects it', () => {
+  it('moves a single item downwards', () => {
     // 1,2,3,4  ->  2,3,1,4
     const list = build(4)
-    list.move(0, 2, { compressed: true})
+    list.move(0, 2)
 
     expect(serializeItems(list.items)).toBe('2,3,1,4')
-    expect(formatSelection(list.selection!)).toBe('2/3') // index 2 now selected
+
+    // 1,2,3,4,5  ->  2,3,4,5,1,6
+    const list2 = build(6)
+    list2.move(0, 4)
+
+    expect(serializeItems(list2.items)).toBe('2,3,4,5,1,6')
   })
 
   it('moves a single item upwards', () => {
     // 1,2,3,4  ->  1,4,2,3
     const list = build(4)
-    list.move(3, 1, { compressed: true})
+    list.move(3, 1)
 
     expect(serializeItems(list.items)).toBe('1,4,2,3')
-    expect(formatSelection(list.selection!)).toBe('1/2')
+    expect(list.selection).toBe(null)
   })
 
   it('moves a contiguous block (selection) to the end', () => {
     // 1,[2,3],4,5  ->  1,4,5,[2,3]
     const list = build(5)
     const sel = ListSelection.create([ListSelection.range(1, 3)])
-    list.select(sel)
 
-    list.move(list.selection!, 4,  { compressed: true}) // “to” is the last index
+    list.move(sel, 4) // “to” is the last index
 
     expect(serializeItems(list.items)).toBe('1,4,5,2,3')
-    expect(formatSelection(list.selection!)).toBe('3/5') // block kept together
   })
 
   it('moves a contiguous block to the start', () => {
     // 1,2,[3,4],5  ->  [3,4],1,2,5
     const list = build(5)
-    list.select(ListSelection.create([ListSelection.range(2, 4)]))
+    const sel = ListSelection.create([ListSelection.range(2, 4)])
 
-    list.move(list.selection!, 0)
+    list.move(sel, 0)
 
     expect(serializeItems(list.items)).toBe('3,4,1,2,5')
-    expect(formatSelection(list.selection!)).toBe('0/2')
   })
 
-  it('clamps destination out of bounds (negative or > length)', () => {
-    const list1 = build(3)               // 1,2,3
-    list1.move(1, -10)                   // try to move “2” far left
-    expect(serializeItems(list1.items)).toBe('2,1,3')
-    expect(formatSelection(list1.selection!)).toBe('0/1')
+  it('throws out of bounds error', () => {
+    // 1,2,[3,4],5  ->  [3,4],1,2,5
+    const list = build(5)
 
-    const list2 = build(3)               // 1,2,3
-    list2.move(0, 99)                    // try to move “1” far right
-    expect(serializeItems(list2.items)).toBe('2,3,1')
-    expect(formatSelection(list2.selection!)).toBe('2/3')
+    expect(() => list.move(0, 7)).toThrow(
+      "`to` is out of bounds"
+    )
+
+    expect(() => list.move(-1, 3)).toThrow(
+      "`from` is out of bounds"
+    )
   })
 
   it('moves a contiguous block (selection) to index 6 visually', () => {
-    // build(11) creates the values "1 … 11" (indices 0 … 10) – not 0 … 10.
-    const list = build(11)
+    // [1, 2], 3, 4, 5, 6, 7, 8 -> 3, 4, 5, 6, 7, [1, 2], 8
+    const list = build(8)
+    const sel = ListSelection.create([ListSelection.range(0, 2)])
+    list.select(sel)
+
+    list.move(sel, 6)
+
+    expect(serializeItems(list.items)).toBe('3,4,5,6,7,1,2,8')
+    expect(formatSelection(list.selection!)).toBe('5/7')
+  })
+
+  it('moves a non-contiguous selection to start', () => {
+    // [1, 2] 3, [4, 5] -> [1, 2, 4, 5], 3
+    const list = build(5)
+    const sel = ListSelection.create([ListSelection.range(0, 2), ListSelection.range(3, 5)])
+    list.select(sel)
+    list.move(sel, 0)
+
+    expect(serializeItems(list.items)).toBe('1,2,4,5,3')
+    expect(formatSelection(list.selection!)).toBe('0/4')
+  })
+
+  it('moves a non-contiguous selection to end', () => {
+    // [1, 2] 3, [4, 5] -> 3, [1, 2, 4, 5]
+    const list = build(5)
+    const sel = ListSelection.create([ListSelection.range(0, 2), ListSelection.range(3, 5)])
+    list.select(sel)
+    list.move(sel, 2)
+
+    expect(serializeItems(list.items)).toBe('3,1,2,4,5')
+    expect(formatSelection(list.selection!)).toBe('1/5')
+  })
   
-    // pick the first two items (indices 0 and 1 → values "1","2")
-    list.select(ListSelection.create([ListSelection.range(0, 2)]))
-  
-    // Model A move: “to” is the slot you see before lifting the block
-    list.move(list.selection!, 6)
-  
-    // After dropping BEFORE what used to be index 6 (value "7")
-    // the array is: 3,4,5,6,1,2,7,8,9,10,11
-    expect(serializeItems(list.items))
-      .toBe('3,4,5,6,1,2,7,8,9,10,11')
-  
-    // The moved block now occupies indices 4 & 5 → selection (4,6)
-    expect(formatSelection(list.selection!))
-      .toBe('4/6')
+   it('preserves an existing single‑item selection when another item is moved', () => {
+    // initial 1,2,[3],4,5  (select “3”)
+    const list = build(5)
+    list.select(ListSelection.single(2))
+
+    // move first item “1” to the end → 2,3,4,5,1
+    list.move(0, 5)
+
+    expect(serializeItems(list.items)).toBe('2,3,4,5,1')
+    // “3” was at index 2, now at index 1 → selection (1,2)
+    expect(formatSelection(list.selection!)).toBe('1/2')
   })
 })

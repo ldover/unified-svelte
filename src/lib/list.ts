@@ -218,6 +218,30 @@ export class ListSelection {
     return SelectionRange.create(inverted ? head : anchor, inverted ? anchor : head, inverted)
   }
 
+  /** Build a selection from a sorted list of indices (consecutive runs merged). */
+  static fromIndices(indices: number[], mainIndex = 0): ListSelection | null {
+    if (!indices.length) return null
+    const ranges: SelectionRange[] = []
+    let start = indices[0]
+
+    for (let i = 1; i <= indices.length; i++) {
+      if (i === indices.length || indices[i] !== indices[i - 1] + 1) {
+        ranges.push(ListSelection.range(start, indices[i - 1] + 1))
+        start = indices[i]
+      }
+    }
+    return ListSelection.create(ranges, mainIndex)
+  }
+
+  /** Utility: return every index covered by the selection. */
+  indices(): number[] {
+    return this.ranges.flatMap(r => {
+      const arr: number[] = []
+      for (let i = r.from; i < r.to; i++) arr.push(i)
+      return arr
+    })
+  }
+
   // @internal
   static normalize(ranges: SelectionRange[], mainIndex: number = 0): ListSelection {
     // Sort ranges, then merge overlapping and touching ranges: (0, 1) and (1, 2) get merged to (0, 2)
@@ -379,12 +403,8 @@ export interface List<Y extends ID, T extends Content> extends SvelteListProps<T
   add(item: Y): void
   /** Inserts item at the given index */
   insert(item: Y, i: number): void
-  /** Move one item (or a whole selection) so that its first element ends up at `to`.
-   * Two move models: 
-   *  - visual — absolute index (default)
-   *  - compressed — index in the array w/o the block
-   * */
-  move(from: number | ListSelection, to: number, opts?: { compressed?: boolean }): void
+  /** Move one item (or a whole selection) so that its first element ends up at `to` */
+  move(from: number | ListSelection, to: number): void
   /** Removes items from the list */
   remove(contentId: string): void
   /** Removes items at the given index */
@@ -549,9 +569,41 @@ export class SvelteList<Y extends ID, T extends Content>
     this.update({ items, selection: newSelection })
   }
 
-  move(from: number | ListSelection, to: number, opts?: { compressed?: boolean }): void {
-    const compressed = opts?.compressed ?? false
-    this.#_moveCore(this.#coerceSel(from), to, compressed)
+  move(from: number | ListSelection, to: number): void {
+    /* 1. Bounds */
+    const n = this.items.length;
+    if (to < 0 || to > n) throw new RangeError('`to` is out of bounds');
+    if (typeof from == 'number') {
+      if (from < 0 || from > n) throw new RangeError('`from` is out of bounds');
+    }
+    const sel = typeof from === 'number' ? ListSelection.single(from) : from;
+
+
+    /* 2. Lift */
+    const picked = sel.pick(this.items);
+    const base   = this.items.filter((_, i) => !sel.contains(i));
+
+    /* 3. Compute splice index in `base` (visual‑slot semantics) */
+    const removedBefore = sel.indices().filter(i => i < to).length;
+    let   idxInBase     = to - removedBefore;
+    if (to > sel.min) idxInBase += 1;           // insert *after* the slot when moving down
+    idxInBase = Math.min(Math.max(idxInBase, 0), base.length);
+
+    const items = [
+      ...base.slice(0, idxInBase),
+      ...picked,
+      ...base.slice(idxInBase)
+    ];
+
+    /* 4. Remap existing selection (if any) */
+    let newSelection: ListSelection | null = null;
+    if (this.selection) {
+      const prevIds  = new Set(this.selection.pick(this.items).map(it => it.id));
+      const newIdx   = items.flatMap((it, i) => prevIds.has(it.id) ? [i] : []);
+      newSelection   = ListSelection.fromIndices(newIdx);
+    }
+
+    this.update({ items, selection: newSelection });
   }
 
   remove(contentId: string): void {
@@ -763,33 +815,6 @@ export class SvelteList<Y extends ID, T extends Content>
 
   #coerceSel(sel: number | ListSelection): ListSelection {
     return typeof sel === 'number' ? ListSelection.single(sel) : sel
-  }
-
-  #_moveCore(sel: ListSelection, to: number, compressed: boolean): void {
-    /* 1️ lift the block ------------------------------------------------ */
-    const picked   = sel.pick(this.items)
-    const [array]  = removeRanges(this.items, sel.ranges.map(r => r.indices()))
-    const len      = picked.length
-
-    /* 2️ choose insertion slot ----------------------------------------- */
-    let target = to
-    if (!compressed && to > sel.min) {
-      // Absolute-mode: positions after the lifted block have shifted left
-      target = to - len
-    }
-    target = Math.max(0, Math.min(target, array.length))        // clamp
-
-    /* 3️ splice‑insert & rebuild selection ----------------------------- */
-    const items = [
-      ...array.slice(0, target),
-      ...picked,
-      ...array.slice(target)
-    ]
-
-    // TODO: why should we select the item if only one is
-    const selection = ListSelection.create([ListSelection.range(target, target + len)])
-
-    this.update({ items, selection })
   }
 
   private _addId(...items: SvelteListItem<T>[]) {
