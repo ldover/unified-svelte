@@ -1,3 +1,4 @@
+<!-- lib/SvelteListUI.svelte -->
 <script lang="ts">
   import { ListSelection, type Handler, type SvelteList } from '$lib/list.js'
   import SvelteListItemUI from '$lib/SvelteListItemUI.svelte'

@@ -1,3 +1,4 @@
+<!-- lib/SvelteListItemUI.svelte -->
 <script lang="ts">
   import { type SvelteListItem } from '$lib/list.js'
   import { onDestroy, onMount } from 'svelte'

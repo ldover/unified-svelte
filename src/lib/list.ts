@@ -1,3 +1,4 @@
+// lib/list.ts
 import { SvelteReactiveComponent } from './reactive.js'
 import { inView, insert, mergeOptions } from './util.js'
 
@@ -378,6 +379,12 @@ export interface List<Y extends ID, T extends Content> extends SvelteListProps<T
   add(item: Y): void
   /** Inserts item at the given index */
   insert(item: Y, i: number): void
+  /** Move one item (or a whole selection) so that its first element ends up at `to`.
+   * Two move models: 
+   *  - visual — absolute index (default)
+   *  - compressed — index in the array w/o the block
+   * */
+  move(from: number | ListSelection, to: number, opts?: { compressed?: boolean }): void
   /** Removes items from the list */
   remove(contentId: string): void
   /** Removes items at the given index */
@@ -540,6 +547,11 @@ export class SvelteList<Y extends ID, T extends Content>
     }
 
     this.update({ items, selection: newSelection })
+  }
+
+  move(from: number | ListSelection, to: number, opts?: { compressed?: boolean }): void {
+    const compressed = opts?.compressed ?? false
+    this.#_moveCore(this.#coerceSel(from), to, compressed)
   }
 
   remove(contentId: string): void {
@@ -743,6 +755,41 @@ export class SvelteList<Y extends ID, T extends Content>
     }
 
     return []
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Private helpers                                                    */
+  /* ------------------------------------------------------------------ */
+
+  #coerceSel(sel: number | ListSelection): ListSelection {
+    return typeof sel === 'number' ? ListSelection.single(sel) : sel
+  }
+
+  #_moveCore(sel: ListSelection, to: number, compressed: boolean): void {
+    /* 1️ lift the block ------------------------------------------------ */
+    const picked   = sel.pick(this.items)
+    const [array]  = removeRanges(this.items, sel.ranges.map(r => r.indices()))
+    const len      = picked.length
+
+    /* 2️ choose insertion slot ----------------------------------------- */
+    let target = to
+    if (!compressed && to > sel.min) {
+      // Absolute-mode: positions after the lifted block have shifted left
+      target = to - len
+    }
+    target = Math.max(0, Math.min(target, array.length))        // clamp
+
+    /* 3️ splice‑insert & rebuild selection ----------------------------- */
+    const items = [
+      ...array.slice(0, target),
+      ...picked,
+      ...array.slice(target)
+    ]
+
+    // TODO: why should we select the item if only one is
+    const selection = ListSelection.create([ListSelection.range(target, target + len)])
+
+    this.update({ items, selection })
   }
 
   private _addId(...items: SvelteListItem<T>[]) {

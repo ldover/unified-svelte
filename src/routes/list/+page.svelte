@@ -1,3 +1,4 @@
+<!-- routes/list/+page.svelte -->
 <script lang="ts">
   import { ListSelection, SvelteList } from '$lib/list.js'
   import SvelteListUI from '$lib/SvelteListUI.svelte'
@@ -18,6 +19,7 @@
   let list = new SvelteList(data(20), builder, {
     id: 'simple-list',
     selection: 'multi',
+    cache: false,
     handlers: {
       keydown: function (e) {
         if (e.metaKey && e.key == 'a' && e.shiftKey) {
@@ -47,6 +49,17 @@
       list.remove(list.items[i].content.id)
     }
   }
+
+  function handleMove() {
+    const selection = list.getProp('selection')
+    if (selection && i1 != undefined) {
+      list.move(selection, i1, {compressed: false})
+    } else if (i && i1) {
+      list.move(i, i1, {compressed: false})
+    } else {
+      // list.remove(list.items[i].content.id)
+    }
+  }
 </script>
 
 <div class="page">
@@ -56,7 +69,8 @@
     <button on:click={() => list.setData(data(Math.round(Math.random() * 100)))}>Refresh</button>
     <button disabled={!i} on:click={() => list.insert({ id: 'X' + Math.random() * 1000 }, i)}
       >Insert</button
-    >
+      >
+    <button disabled={i1 == undefined} on:click={() => handleMove()}>Move</button>
     <button disabled={!i} on:click={() => handleRemove()}>Remove</button>
     <button
       disabled={!i}

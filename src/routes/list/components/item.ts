@@ -1,3 +1,4 @@
+// routes/list/components/item.ts
 import type { Content } from '$lib/list.js'
 
 export interface Item extends Content {

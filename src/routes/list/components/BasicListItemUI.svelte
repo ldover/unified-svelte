@@ -1,3 +1,4 @@
+<!-- routes/list/components/BasicListItemUI.svelte -->
 <script lang="ts">
   import { type SvelteListItem } from '$lib/list.js'
   import type { Item } from './item.js'
