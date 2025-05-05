@@ -53,11 +53,9 @@
   function handleMove() {
     const selection = list.getProp('selection')
     if (selection && i1 != undefined) {
-      list.move(selection, i1, {compressed: false})
+      list.move(selection, i1)
     } else if (i && i1) {
-      list.move(i, i1, {compressed: false})
-    } else {
-      // list.remove(list.items[i].content.id)
+      list.move(i, i1)
     }
   }
 </script>
