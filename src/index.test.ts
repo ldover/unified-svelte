@@ -508,6 +508,23 @@ describe('SvelteList.move', () => {
     expect(serializeItems(list.items)).toBe('3,1,2,4,5')
     expect(formatSelection(list.selection!)).toBe('1/5')
   })
+
+  it('keeps the item at the same position when moved to the same position', () => {
+    // 1,2,3,4  ->  1,2,3,4
+    const list = build(4)
+    list.move(2, 2)
+
+    expect(serializeItems(list.items)).toBe('1,2,3,4')
+
+    // Same but with selection
+    const list2 = build(4)
+    // 1,2,[3],4  ->  1,2,[3],4
+    const sel = ListSelection.create([ListSelection.range(2, 3)])
+    list2.select(sel)
+    list2.move(sel, 3)
+    
+    expect(serializeItems(list.items)).toBe('1,2,3,4')
+  })
   
    it('preserves an existing single‑item selection when another item is moved', () => {
     // initial 1,2,[3],4,5  (select “3”)

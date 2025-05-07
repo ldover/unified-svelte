@@ -47,12 +47,12 @@
 </script>
 
 
-<!-- todo: figure out what to do with  use:focusOnClick  -->
+<!-- TODO: add back use:focusOnClick  -->
 <button id={item.id} 
-data-idx={index} 
-draggable="true"
-on:dragstart={onDragStart}
-on:click on:focus on:blur on:keydown>
+        data-idx={index} 
+        draggable="true"
+        on:dragstart={onDragStart}
+        on:click on:focus on:blur on:keydown>
   <svelte:component
     this={$item.component}
     {index}

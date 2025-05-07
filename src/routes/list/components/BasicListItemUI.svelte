@@ -28,7 +28,7 @@
 
 <style>
   div {
-    padding: 2px;
+    padding: 8px;
     background-color: white;
     border-top: 1px solid transparent;
   }

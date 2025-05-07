@@ -3,6 +3,7 @@
   import { ListSelection, type Handler, type SvelteList } from '$lib/list.js'
   import SvelteListItemUI from '$lib/SvelteListItemUI.svelte'
   import { onMount, setContext } from 'svelte'
+  import { findClosest, findInsertion, findMove, type HoverData } from './drag.js'
 
   export let list: SvelteList<any, any>
   export let classes: string[] = []
@@ -143,27 +144,28 @@
     return clientY - top + e.scrollTop;
   }
 
-  /* DRAG‑OVER — runs ~60 fps */
+  let data: HoverData | null = null
+  /* TODO: requestAnimationFrame */
   function handleDragOver(e: DragEvent) {
     e.preventDefault();           // allow drop
-
-    // 1. find which item we’re over
-    const el = (e.target as HTMLElement).closest('[data-idx]');
-    if (!el) return;
-
-    const idx   = +el.dataset.idx!;
-    const rect  = el.getBoundingClientRect();
-    const midY  = rect.top + rect.height / 2;
-
-    // 2. compute target position *between* items
-    const above = e.clientY < midY;
-    const offset = above ? rect.top : rect.bottom;
-
-    barY = yRelative(offset);
-    bar.style.transform = `translateY(${barY}px)`;
-
-    // 3. remember for drop (optional)
-    currentTargetIndex = idx
+  
+    data = findClosest('[data-idx]', e)
+    if (data) {
+      const rect  = data.e.getBoundingClientRect();
+      const midY  = rect.top + rect.height / 2;
+  
+      // 2. compute target position *between* items
+      const above = e.clientY < midY;
+      const offset = above ? rect.top : rect.bottom;
+  
+      if (data.pos == 0) {
+        bar.style.visibility = "hidden"
+      } else {
+        bar.style.visibility = "visible"
+        barY = yRelative(offset);
+        bar.style.transform = `translateY(${barY}px)`;
+      }
+    }
   }
 
   function clearBar() {
@@ -176,22 +178,28 @@
 
   function handleDrop(e: DragEvent) {
     e.preventDefault();
-    if (currentTargetIndex == null) return;
-
-    /* Retrieve source selection */
-    const data = e.dataTransfer?.getData('application/x-listselection');
-    if (!data) return;
-    const sel  = ListSelection.fromIndices(JSON.parse(data));
-
-    list.move(sel!, currentTargetIndex);
-    clearBar();
+  
+    if (data) {
+      if (data.pos == 0) {
+        return
+      }
+      if (!list.selection) {
+        // TODO: expand
+        throw new Error('only works with selection rn')
+      }
+      
+      const insertionIndex = findInsertion(data)
+      const moveIndex = findMove(insertionIndex, list.selection)
+      list.move(list.selection, moveIndex);
+      clearBar();
+    }
   }
 </script>
 
 <div bind:this={e}  
-on:dragover={handleDragOver}
-on:dragleave={clearBar}
-on:drop={handleDrop}
+    on:dragover={handleDragOver}
+    on:dragleave={clearBar}
+    on:drop={handleDrop}
       class={classes.join(' ')} {style}>
   <div bind:this={bar} class="bar"></div>
   {#each $list.items as item, i (item.id)}

@@ -586,7 +586,6 @@ export class SvelteList<Y extends ID, T extends Content>
     /* 3. Compute splice index in `base` (visual‑slot semantics) */
     const removedBefore = sel.indices().filter(i => i < to).length;
     let   idxInBase     = to - removedBefore;
-    if (to > sel.min) idxInBase += 1;           // insert *after* the slot when moving down
     idxInBase = Math.min(Math.max(idxInBase, 0), base.length);
 
     const items = [
