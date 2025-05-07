@@ -7,7 +7,7 @@
 
   let builder = (d: { id: string }) => ({
     content: new ItemImpl(d.id, `Item ${d.id}`),
-    options: { component: BasicListItemUi }
+    options: { component: BasicListItemUi, hover: { threshold: 0.2} }
   })
 
   function data(num: number) {
@@ -19,6 +19,7 @@
   let list = new SvelteList(data(20), builder, {
     id: 'simple-list',
     selection: 'multi',
+    focusOn: 'mousedown',
     cache: false,
     handlers: {
       keydown: function (e) {

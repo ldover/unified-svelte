@@ -16,6 +16,8 @@
   export let last: boolean
 
   let list: SvelteList<any, any> = getContext('list')
+
+  let isFocusOnClick = list.options.focusOn == 'click'
   
   onMount(() => {
     item.mount()
@@ -26,33 +28,42 @@
   })
 
   function onDragStart(e: DragEvent) {
-  const sel = list.selection?.contains(index)
-    ? list.selection           // drag currently selected block
-    : ListSelection.single(index)
-  // serialise -> store on dataTransfer
-  e.dataTransfer!.setData(
-    'application/x-listselection',
-    JSON.stringify(sel.indices())   // store raw indices
-  )
-  e.dataTransfer!.effectAllowed = 'move'
+    const sel = list.selection?.contains(index)
+      ? list.selection           // drag currently selected block
+      : ListSelection.single(index)
+    // serialise -> store on dataTransfer
+    e.dataTransfer!.setData(
+      'application/x-listselection',
+      JSON.stringify(sel.indices())   // store raw indices
+    )
+    e.dataTransfer!.effectAllowed = 'move'
 
-  /* optional “ghost” */
-  const img = document.createElement('div')
-  img.textContent = `${sel.size()} item${sel.size() > 1 ? 's' : ''}`
-  img.style.cssText = 'padding:4px 8px;background:#444;color:white;border-radius:4px;'
-  document.body.appendChild(img)
-  e.dataTransfer!.setDragImage(img, -10, -10)
-  setTimeout(()=>img.remove(),0)
+    // TODO: expose API for the drag image
+    //  Tiger will provide own drag image. although it also needs
+    //  we might also integrate with `Draggable` interface; or rather make Draggable part of these
+    //  unified UI libraries...
+    // Let's leave this for later
+    /* optional “ghost” */
+    const img = document.createElement('div')
+    img.textContent = `${sel.size()} item${sel.size() > 1 ? 's' : ''}`
+    img.style.cssText = 'padding:4px 8px;background:#444;color:white;border-radius:4px;'
+    document.body.appendChild(img)
+    e.dataTransfer!.setDragImage(img, -10, -10)
+    setTimeout(()=>img.remove(),0)
 }
 </script>
 
 
-<!-- TODO: add back use:focusOnClick  -->
 <button id={item.id} 
         data-idx={index} 
-        draggable="true"
+        use:focusOnClick={isFocusOnClick}
+        draggable="{!isFocusOnClick}"
         on:dragstart={onDragStart}
         on:click on:focus on:blur on:keydown>
+  {#if list.options.dragHandle}
+    <!-- TODO: test the drag handle -->
+    <svelte:component this={list.options.dragHandle}/>
+  {/if}
   <svelte:component
     this={$item.component}
     {index}
@@ -69,6 +80,7 @@
 
 <style>
   button {
+    position: relative;
     padding: 0;
     margin: 0;
     width: 100%;

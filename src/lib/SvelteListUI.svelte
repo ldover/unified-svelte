@@ -1,9 +1,10 @@
 <!-- lib/SvelteListUI.svelte -->
 <script lang="ts">
-  import { ListSelection, type Handler, type SvelteList } from '$lib/list.js'
+  import { ListSelection, type Handler, type SvelteList, InsertionBar } from '$lib/list.js'
   import SvelteListItemUI from '$lib/SvelteListItemUI.svelte'
   import { onMount, setContext } from 'svelte'
-  import { findClosest, findInsertion, findMove, type HoverData } from './drag.js'
+  import { calculateHover, findClosest, findInsertion, findMove, type HoverData } from './drag.js'
+  import InsertionBarUi from './InsertionBarUI.svelte'
 
   export let list: SvelteList<any, any>
   export let classes: string[] = []
@@ -15,7 +16,7 @@
   onMount(() => {
     list.setElement(e)
     computeSelected(list.selection, null)
-    clearBar()
+    bar.hide()
   })
 
   const computeSelected = (selection: ListSelection | null, prev: ListSelection | null) => {
@@ -135,73 +136,48 @@
   }
 
   
-  let bar: HTMLDivElement;        // the slim horizontal line
-  let barY = -9999;               // hidden off‑screen
-
-  /* helper – converts clientY to an offset within e */
-  function yRelative(clientY: number) {
-    const { top } = e.getBoundingClientRect();
-    return clientY - top + e.scrollTop;
-  }
-
+  let bar: InsertionBar = new InsertionBar({ component: InsertionBarUi })
   let data: HoverData | null = null
+  let closest: { index: number, e: HTMLElement} | null = null
   /* TODO: requestAnimationFrame */
-  function handleDragOver(e: DragEvent) {
-    e.preventDefault();           // allow drop
+  function handleDragOver(ev: DragEvent) {
+    ev.preventDefault();           // allow drop
   
-    data = findClosest('[data-idx]', e)
-    if (data) {
-      const rect  = data.e.getBoundingClientRect();
-      const midY  = rect.top + rect.height / 2;
-  
-      // 2. compute target position *between* items
-      const above = e.clientY < midY;
-      const offset = above ? rect.top : rect.bottom;
-  
-      if (data.pos == 0) {
-        bar.style.visibility = "hidden"
-      } else {
-        bar.style.visibility = "visible"
-        barY = yRelative(offset);
-        bar.style.transform = `translateY(${barY}px)`;
-      }
+    closest = findClosest('[data-idx]', ev)
+    
+    if (closest) {
+      const item = list.items[closest.index]
+      data = calculateHover(closest.e, ev, item.options.hover)
+      bar.show(closest.e, ev, e , data)
     }
   }
 
-  function clearBar() {
-    bar.style.transform = 'translateY(-9999px)';
-    currentTargetIndex = null;
-  }
-
-  /* -- DROP ---------------------------------------------------------- */
-  let currentTargetIndex: number | null = null;
-
-  function handleDrop(e: DragEvent) {
-    e.preventDefault();
+  function handleDrop(ev: DragEvent) {
+    ev.preventDefault();
   
-    if (data) {
+    if (closest) {
+      if (!data) {throw new Error('data should be set')}
+      
       if (data.pos == 0) {
-        return
+        return  // Don't drop into the list when drop occurs on the item
       }
-      if (!list.selection) {
-        // TODO: expand
-        throw new Error('only works with selection rn')
-      }
+      let selection = list.selection ?? ListSelection.single(closest.index)
       
       const insertionIndex = findInsertion(data)
-      const moveIndex = findMove(insertionIndex, list.selection)
-      list.move(list.selection, moveIndex);
-      clearBar();
+      const moveIndex = findMove(insertionIndex, selection)
+      list.move(selection, moveIndex);
+      bar.hide()
     }
   }
 </script>
 
+<!-- svelte-ignore a11y-no-static-element-interactions -->
 <div bind:this={e}  
-    on:dragover={handleDragOver}
-    on:dragleave={clearBar}
-    on:drop={handleDrop}
+     on:dragover={handleDragOver}
+     on:dragleave={() => bar.hide()}
+     on:drop={handleDrop}
       class={classes.join(' ')} {style}>
-  <div bind:this={bar} class="bar"></div>
+  <InsertionBarUi {bar} />
   {#each $list.items as item, i (item.id)}
     <SvelteListItemUI
       on:click={(e) => handleClick.call(list, e, { item, index: i })}
@@ -229,13 +205,4 @@
     overflow-y: auto;
     height: 100%;
   }
-
-  .bar     {
-    position:absolute; left:0; right:0;
-    height:0;
-    border-top:2px solid var(--accent, dodgerblue);
-    pointer-events:none; z-index:10;
-    transition: transform 40ms linear;
-  }
-
 </style>

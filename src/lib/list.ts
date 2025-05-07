@@ -1,4 +1,6 @@
 // lib/list.ts
+import InsertionBarUi from './InsertionBarUI.svelte'
+import type { HoverData, HoverOptions } from './drag.js'
 import { SvelteReactiveComponent } from './reactive.js'
 import { inView, insert, mergeOptions } from './util.js'
 
@@ -466,6 +468,8 @@ interface ListOptions {
   cache: boolean 
   focusOn: 'click' | 'mousedown' // default focus on click (although might be more web-native if focus on 'mousedown' is default)
   selection: 'multi' | 'single'
+  dragHandle: any // TODO:type svelte component
+  insertionBar: any // TODO: type svelte component
   handlers?: {
     click?: Handler<MouseEvent>
     keydown?: Handler<KeyboardEvent>
@@ -493,6 +497,8 @@ function defaultOptions(): ListOptions {
     id: `list-${Math.round(Math.random() * 100000)}`,
     focusOn: 'click', // todo: implement
     selection: 'multi', // todo: implemente
+    dragHandle: null,
+    insertionBar: null,
     cache: true
   }
 }
@@ -836,6 +842,7 @@ export class SvelteList<Y extends ID, T extends Content>
 
 interface ListItemOptions {
   component: object | null
+  hover: HoverOptions
 }
 
 interface ID {
@@ -847,15 +854,86 @@ export interface Content extends ID {
   destroy?: () => void
 }
 
+
+interface InsertionBarProps {
+  visible: boolean
+  e: HTMLElement | null
+  translateY: number
+}
+
+interface InsertionBarOptions {
+  component: any
+}
+
+export class InsertionBar extends SvelteReactiveComponent<InsertionBarProps> {
+
+  public options: InsertionBarOptions
+
+  constructor(options: Partial<InsertionBarOptions> = {}) {
+    const merged: InsertionBarOptions = mergeOptions(
+      {
+        component: InsertionBarUi,
+      },
+      options || {}
+    )
+
+    super({
+        visible: false,
+        e: null,
+        translateY: -9999
+    })
+
+    this.options = merged
+  }
+
+  mount(e: HTMLElement) {
+    this.set('e', e)
+  }
+
+  show(item: HTMLElement, e: DragEvent, container: HTMLElement, data: HoverData) {
+    const rect  = item.getBoundingClientRect();
+    const midY  = rect.top + rect.height / 2;
+
+    // 2. compute target position *between* items
+    const above = e.clientY < midY;
+    const offset = above ? rect.top : rect.bottom;
+
+    if (data.pos == 0) {
+      this.set('visible', false)
+    } else {
+      /* converts clientY to an offset within e */
+      const { top } = container.getBoundingClientRect();
+      const yRelative = offset - top + container.scrollTop
+      this.update({visible: true, translateY: yRelative})
+    }
+  }
+
+  hide() {
+    this.update({visible: false, translateY: -9999})
+  }
+
+  get visible() {
+    return this.getProp('visible')
+  }
+
+  get e() {
+    return this.getProp('e')
+  }
+}
+
+
 export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
   SvelteListItemProps<T>
 > {
   private _mounted: boolean = false
 
+  public readonly options: ListItemOptions
+
   constructor(id: string, content: T, options: Partial<ListItemOptions>) {
     const merged: ListItemOptions = mergeOptions(
       {
-        component: null
+        component: null,
+        hover: { threshold: 0.2 }
       },
       options || {}
     )
@@ -865,6 +943,8 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
       content,
       component: merged.component
     })
+
+    this.options = merged
   }
 
   get id(): string {
