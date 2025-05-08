@@ -24,10 +24,21 @@
   class:focused={focused || focusedGroup}
 >
   {$item.content.name}
+
+  <div class="drag-handle-container">
+    <slot name="drag-handle" />
+  </div>
 </div>
 
 <style>
+  .drag-handle-container {
+    background: transparent;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
   div {
+    position: relative;
     padding: 8px;
     background-color: white;
     border-top: 1px solid transparent;
@@ -41,6 +52,7 @@
     background: rgba(0, 0, 0, 0.2);
     color: white;
     border-radius: 4px;
+    border-left: 6px solid transparent;
   }
 
   .selected.focused {

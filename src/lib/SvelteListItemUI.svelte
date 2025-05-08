@@ -60,10 +60,6 @@
         draggable="{!isFocusOnClick}"
         on:dragstart={onDragStart}
         on:click on:focus on:blur on:keydown>
-  {#if list.options.dragHandle}
-    <!-- TODO: test the drag handle -->
-    <svelte:component this={list.options.dragHandle}/>
-  {/if}
   <svelte:component
     this={$item.component}
     {index}
@@ -75,12 +71,27 @@
     {focusedGroup}
     {first}
     {last}
-  />
+  >
+  <svelte:fragment slot="drag-handle">
+    {#if list.options.dragHandle}
+    <!-- TODO: test the drag handle -->
+    <svelte:component {item} 
+                      {index}
+                      {selected}
+                      {nextSelected}
+                      {prevSelected}
+                      {focused}
+                      {focusedGroup}
+                      {first}
+                      {last}
+    this={list.options.dragHandle}/>
+  {/if}
+  </svelte:fragment>
+</svelte:component>
 </button>
 
 <style>
   button {
-    position: relative;
     padding: 0;
     margin: 0;
     width: 100%;

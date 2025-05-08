@@ -519,6 +519,10 @@ export class SvelteList<Y extends ID, T extends Content>
     public readonly builder: ListItemBuilder<Y, T>,
     options: Partial<ListOptions> = {}
   ) {
+    if (options.focusOn == 'click' && !options.dragHandle) {
+      throw new Error(`'Invalid options: dragHandle has to be provided when focusOn is set to 'click'`)
+    }
+
     const mergedOptions = mergeOptions(defaultOptions(), options)
     const cache = new Map<string, SvelteListItem<T>>()
     const items = buildItems(data, builder, mergedOptions.id, cache, mergedOptions.cache)
