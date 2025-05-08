@@ -5,11 +5,29 @@
   let e: HTMLElement
   export let bar: InsertionBar
 
+  // TODO: simplify this component
   onMount(() => {
+    // Start hidden
+    e.style.opacity = '0'
     e.style.visibility = 'hidden'
 
+    let fadeInTimeout: ReturnType<typeof setTimeout> | null = null
+
     bar.afterSet('visible', (value) => {
-      e.style.visibility = value ? 'visible' : 'hidden'
+      if (value) {
+        e.style.visibility = 'visible'
+        // Slight delay before fade-in
+        fadeInTimeout = setTimeout(() => {
+          e.style.opacity = '1'
+        }, 50)
+      } else {
+        if (fadeInTimeout) clearTimeout(fadeInTimeout)
+        e.style.opacity = '0'
+        // Wait for fade-out transition to finish before hiding
+        setTimeout(() => {
+          e.style.visibility = 'hidden'
+        }, 120)
+      }
     })
 
     bar.afterSet('translateY', (value) => {
@@ -38,6 +56,11 @@
     height: 0;
     pointer-events: none;
     z-index: 10;
-    transition: transform 40ms linear;
+
+    /* Smooth transform and fade */
+    transition:
+      transform 80ms ease,
+      opacity 100ms ease;
+    opacity: 0;
   }
 </style>

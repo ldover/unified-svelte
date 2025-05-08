@@ -908,7 +908,7 @@ export class InsertionBar extends SvelteReactiveComponent<InsertionBarProps> {
   }
 
   hide() {
-    this.update({visible: false, translateY: -9999})
+    this.update({visible: false})
   }
 
   get visible() {
