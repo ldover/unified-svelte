@@ -1,5 +1,4 @@
 // lib/list.ts
-import InsertionBarUi from './InsertionBarUI.svelte'
 import type { HoverData, HoverOptions } from './drag.js'
 import { SvelteReactiveComponent } from './reactive.js'
 import { inView, insert, mergeOptions } from './util.js'
@@ -872,7 +871,7 @@ export class InsertionBar extends SvelteReactiveComponent<InsertionBarProps> {
   constructor(options: Partial<InsertionBarOptions> = {}) {
     const merged: InsertionBarOptions = mergeOptions(
       {
-        component: InsertionBarUi,
+        component: null,
       },
       options || {}
     )

@@ -18,15 +18,24 @@
   })
 </script>
 
-<div bind:this={e} class="bar"></div>
+<div bind:this={e} class="bar">
+  {#if bar.options.component}
+    <svelte:component this={bar.options.component} {bar}/>
+  {:else}
+    <div class="bar-content"></div>
+  {/if}
+</div>
 
 <style>
+  .bar-content {
+    border-top: 2px solid var(--accent, dodgerblue);
+  }
+
   .bar {
     position: absolute;
     left: 0;
     right: 0;
     height: 0;
-    border-top: 2px solid var(--accent, dodgerblue);
     pointer-events: none;
     z-index: 10;
     transition: transform 40ms linear;

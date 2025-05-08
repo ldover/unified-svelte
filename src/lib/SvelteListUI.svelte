@@ -136,7 +136,7 @@
   }
 
   
-  let bar: InsertionBar = new InsertionBar({ component: InsertionBarUi })
+  let bar: InsertionBar = new InsertionBar({ component: list.options.insertionBar })
   let data: HoverData | null = null
   let closest: { index: number, e: HTMLElement} | null = null
   /* TODO: requestAnimationFrame */

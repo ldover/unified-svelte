@@ -3,6 +3,7 @@
   import { ListSelection, SvelteList } from '$lib/list.js'
   import SvelteListUI from '$lib/SvelteListUI.svelte'
   import BasicListItemUi from './components/BasicListItemUI.svelte'
+  import CustomInsertionBarUi from './components/InsertionBarContentUI.svelte'
   import { ItemImpl } from './components/item.js'
 
   let builder = (d: { id: string }) => ({
@@ -19,6 +20,7 @@
   let list = new SvelteList(data(20), builder, {
     id: 'simple-list',
     selection: 'multi',
+    insertionBar: CustomInsertionBarUi,
     focusOn: 'mousedown',
     cache: false,
     handlers: {
