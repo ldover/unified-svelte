@@ -413,129 +413,114 @@ describe('ListSelection - subtract method', () => {
 })
 
 describe('SvelteList.move', () => {
-  const build = (n: number) =>
+  const build = (d: string[]) =>
     new SvelteList(
-      Array.from({ length: n }, (_, i) => ({ id: String(i + 1) })),
+      d.map((d) => ({ id: d })),
       (item) => ({ content: { id: item.id } })
     )
 
-  it('moves a single item downwards', () => {
-    // 1,2,3,4  ->  2,3,1,4
-    const list = build(4)
-    list.move(0, 2)
+  /**  Little DSL identical to the first block:
+   *  - `*` marks selected items
+   *  - `|` marks the drop-slot (`to` argument)
+   *  It returns the list with `*` re-applied to whatever is still selected.
+   */
+  const move = (spec: string): string => {
+    const parts = spec.trim().split(/\s+/)
+    const data: string[] = []
+    const sel: number[] = []
+    let to = 0
 
-    expect(serializeItems(list.items)).toBe('2,3,1,4')
+    for (const p of parts) {
+      if (p === '|') {
+        to = data.length
+      } else {
+        const starred = p.includes('*')
+        const id = p.replace('*', '')
+        if (starred) sel.push(data.length)
+        data.push(id)
+      }
+    }
 
-    // 1,2,3,4,5  ->  2,3,4,5,1,6
-    const list2 = build(6)
-    list2.move(0, 4)
+    const list = build(data)
+    if (sel.length) {
+      const selection = ListSelection.fromIndices(sel)!
+      list.select(selection)
+      list.move(selection, to)
+    } else {
+      list.move(to, to) // no-op, kept for symmetry
+    }
 
-    expect(serializeItems(list2.items)).toBe('2,3,4,5,1,6')
+    const selectedAfter = list.selection?.indices() ?? []
+    return list.items
+      .map((it, i) => (selectedAfter.includes(i) ? `${it.content.id}*` : it.content.id))
+      .join(' ')
+  }
+
+  it('moves a single item to the end of the list', () => {
+    expect(move('0 1* 2 3 |')).toBe('0 2 3 1*')
   })
 
-  it('moves a single item upwards', () => {
-    // 1,2,3,4  ->  1,4,2,3
-    const list = build(4)
-    list.move(3, 1)
-
-    expect(serializeItems(list.items)).toBe('1,4,2,3')
-    expect(list.selection).toBe(null)
+  it('moves the last item to the very beginning', () => {
+    expect(move('| 0 1 2 3*')).toBe('3* 0 1 2')
   })
 
-  it('moves a contiguous block (selection) to the end', () => {
-    // 1,[2,3],4,5  ->  1,4,5,[2,3]
-    const list = build(5)
-    const sel = ListSelection.create([ListSelection.range(1, 3)])
-
-    list.move(sel, 4) // “to” is the last index
-
-    expect(serializeItems(list.items)).toBe('1,4,5,2,3')
+  it('moves a contiguous selection to the end of the list', () => {
+    expect(move('0 1* 2* 3 |')).toBe('0 3 1* 2*')
   })
 
-  it('moves a contiguous block to the start', () => {
-    // 1,2,[3,4],5  ->  [3,4],1,2,5
-    const list = build(5)
-    const sel = ListSelection.create([ListSelection.range(2, 4)])
-
-    list.move(sel, 0)
-
-    expect(serializeItems(list.items)).toBe('3,4,1,2,5')
+  it('moves a contiguous selection to the very beginning', () => {
+    expect(move('| 0 1* 2* 3')).toBe('1* 2* 0 3')
   })
 
-  it('throws out of bounds error', () => {
-    // 1,2,[3,4],5  ->  [3,4],1,2,5
-    const list = build(5)
-
-    expect(() => list.move(0, 7)).toThrow(
-      "`to` is out of bounds"
-    )
-
-    expect(() => list.move(-1, 3)).toThrow(
-      "`from` is out of bounds"
-    )
+  it('moves selection to the start the intersected selection range', () => {
+    expect(move('0 1* | 2* 3 4 *5')).toBe('0 1* 2* 5* 3 4')
   })
 
-  it('moves a contiguous block (selection) to index 6 visually', () => {
-    // [1, 2], 3, 4, 5, 6, 7, 8 -> 3, 4, 5, 6, 7, [1, 2], 8
-    const list = build(8)
-    const sel = ListSelection.create([ListSelection.range(0, 2)])
-    list.select(sel)
-
-    list.move(sel, 6)
-
-    expect(serializeItems(list.items)).toBe('3,4,5,6,7,1,2,8')
-    expect(formatSelection(list.selection!)).toBe('5/7')
+  it('moves selection to the start of the "touched" selection range', () => {
+    expect(move('0 1* 2* | 3 4 *5')).toBe('0 1* 2* 5* 3 4')
+    expect(move('0 | 1* 2* 3 4 *5')).toBe('0 1* 2* 5* 3 4')
   })
 
-  it('moves a non-contiguous selection to start', () => {
-    // [1, 2] 3, [4, 5] -> [1, 2, 4, 5], 3
-    const list = build(5)
-    const sel = ListSelection.create([ListSelection.range(0, 2), ListSelection.range(3, 5)])
-    list.select(sel)
-    list.move(sel, 0)
-
-    expect(serializeItems(list.items)).toBe('1,2,4,5,3')
-    expect(formatSelection(list.selection!)).toBe('0/4')
+  it('moves multiple disjoint ranges in one operation', () => {
+    expect(move('0 1* 2* 3 4 5* 6* 7 8 | 9 10')).toBe('0 3 4 7 8 1* 2* 5* 6* 9 10')
   })
 
-  it('moves a non-contiguous selection to end', () => {
-    // [1, 2] 3, [4, 5] -> 3, [1, 2, 4, 5]
-    const list = build(5)
-    const sel = ListSelection.create([ListSelection.range(0, 2), ListSelection.range(3, 5)])
-    list.select(sel)
-    list.move(sel, 2)
-
-    expect(serializeItems(list.items)).toBe('3,1,2,4,5')
-    expect(formatSelection(list.selection!)).toBe('1/5')
+  it('handles fragmented (non-contiguous) selections', () => {
+    expect(move('0 1* 2 3* 4 5 | 6')).toBe('0 2 4 5 1* 3* 6')
   })
 
-  it('keeps the item at the same position when moved to the same position', () => {
-    // 1,2,3,4  ->  1,2,3,4
-    const list = build(4)
-    list.move(2, 2)
-
-    expect(serializeItems(list.items)).toBe('1,2,3,4')
-
-    // Same but with selection
-    const list2 = build(4)
-    // 1,2,[3],4  ->  1,2,[3],4
-    const sel = ListSelection.create([ListSelection.range(2, 3)])
-    list2.select(sel)
-    list2.move(sel, 3)
-    
-    expect(serializeItems(list.items)).toBe('1,2,3,4')
+  it("is a no-op when you drop *inside* the selection's own span", () => {
+    expect(move('0 1* 2* | 3 4')).toBe('0 1* 2* 3 4')
   })
-  
-   it('preserves an existing single‑item selection when another item is moved', () => {
-    // initial 1,2,[3],4,5  (select “3”)
-    const list = build(5)
-    list.select(ListSelection.single(2))
 
-    // move first item “1” to the end → 2,3,4,5,1
-    list.move(0, 5)
+  it('is a no-op when the whole list is selected', () => {
+    expect(move('0* 1* 2* |')).toBe('0* 1* 2*')
+  })
 
-    expect(serializeItems(list.items)).toBe('2,3,4,5,1')
-    // “3” was at index 2, now at index 1 → selection (1,2)
-    expect(formatSelection(list.selection!)).toBe('1/2')
+  /* ─ error handling ──────────────────────────────────────────────── */
+
+  it('throws when `from` is out of bounds', () => {
+    const list = build(['0', '1', '2'])
+    expect(() => list.move(3, 1)).toThrow(RangeError)
+  })
+
+  it('throws when `to` is out of bounds', () => {
+    const list = build(['0', '1', '2'])
+    expect(() => list.move(1, 4)).toThrow(RangeError)
+  })
+
+  it('throws when either index is negative', () => {
+    const list = build(['0', '1', '2'])
+    expect(() => list.move(-1, 1)).toThrow(RangeError)
+    expect(() => list.move(1, -1)).toThrow(RangeError)
+  })
+
+  /* ─ selection-preservation case ─────────────────────────────────── */
+
+  it('preserves the original (unmoved) selection after another item is moved', () => {
+    const list = build(['0', '1', '2', '3'])
+    list.select(ListSelection.single(2)) // selects item '2'
+    list.move(0, 4)                      // move item '0' to the end
+    expect(formatSelection(list.selection!)).toBe('1/2') // item '2' is now at index 1
   })
 })

@@ -164,8 +164,7 @@
       let selection = list.selection ?? ListSelection.single(closest.index)
       
       const insertionIndex = findInsertion(data)
-      const moveIndex = findMove(insertionIndex, selection)
-      list.move(selection, moveIndex);
+      list.move(selection, insertionIndex);
       bar.hide()
     }
   }

@@ -583,7 +583,7 @@ export class SvelteList<Y extends ID, T extends Content>
     const n = this.items.length;
     if (to < 0 || to > n) throw new RangeError('`to` is out of bounds');
     if (typeof from == 'number') {
-      if (from < 0 || from > n) throw new RangeError('`from` is out of bounds');
+      if (from < 0 || from >= n) throw new RangeError('`from` is out of bounds');
     }
     const sel = typeof from === 'number' ? ListSelection.single(from) : from;
 
