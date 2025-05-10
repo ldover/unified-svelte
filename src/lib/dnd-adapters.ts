@@ -1,11 +1,8 @@
 // src/dnd-adapter.ts
 import {
     type ExternalAdapter,
-    type DraggablePayload,
-    registerAdapter,
   } from "./dnd.js";
   
-  const EXTERNAL = "external";
   
   /* ------------ helpers shared by both adapters --------------- */
   const readAsDataURL = (f: File) =>
@@ -43,19 +40,15 @@ import {
         }
       );
   
-      const payload: DraggablePayload = {
-        origin: EXTERNAL,
-        data: {
+      return {
           kind: "image",
           name: file.name,
           src: base64,
           width,
           height,
           mime_type: file.type,
-        },
-      };
-      return payload;
-    },
+      }
+    }
   };
   
   /* ------------------ note adapter ------------------------- */
@@ -69,12 +62,9 @@ import {
     async parse(file: File) {
       const text = await readAsText(file);
       return {
-        origin: EXTERNAL,
-        data: {
           kind: "note",
           name: file.name,
           content: text,
-        },
       };
     },
   };

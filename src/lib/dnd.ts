@@ -46,7 +46,7 @@ export interface Droppable<TExpected = unknown>
 
 export interface ExternalAdapter {
   match(dt: File): boolean;
-  parse(dt: File): Promise<DraggablePayload | null>;
+  parse(dt: File): Promise<unknown | null>;
 }
 
 const adapters: ExternalAdapter[] = [];
@@ -56,12 +56,34 @@ export function registerAdapter(adapter: ExternalAdapter): void {
   adapters.push(adapter);
 }
 
+let externalHandler: ((data: unknown) => void) | null = null
+
+/** To parse files */
+export function registerExternalHandler(options: { adapters?: ExternalAdapter[], onHandle: (data: unknown) => void}): void {
+    externalHandler =  options.onHandle
+    if (options.adapters) {
+        options.adapters.forEach(a => registerAdapter(a))
+    }
+}
+
 /* ---------------------------------------------------------------- *
  * 3.  Utility helpers
  * ---------------------------------------------------------------- */
 
+export const handleFile = async (f: File) => {
+    for (const a of adapters) {
+        try {
+            if (a.match(f)) {
+                return a.parse(f);
+            }
+        } catch (err) {
+            console.error('Failed to parse' + f.name, err)
+        }
+    }
+}
+
 /** Try to read internal payload first; else consult adapters. */
-async function extractPayload(ev: DragEvent): Promise<DraggablePayload | null> {
+function extractPayload(ev: DragEvent): DraggablePayload | null {
   const dt = ev.dataTransfer;
   if (!dt) return null;
 
@@ -74,17 +96,18 @@ async function extractPayload(ev: DragEvent): Promise<DraggablePayload | null> {
     }
   }
 
-  for (const a of adapters) {
-    try {
-      if (a.match(dt)) {
-        const p = await a.parse(dt);
-        if (p) return p;
-      }
-    } catch {
-      /* swallow adapter errors */
-    }
+  return null
+}
+
+async function extractExternal(ev: DragEvent): Promise<DraggablePayload | null> {
+  const dt = ev.dataTransfer;
+  if (!dt) return null;
+  const data = await Promise.all([...dt.files].map(handleFile))
+  
+  return {
+    origin: 'external',
+    data
   }
-  return null;
 }
 
 /* ---------------------------------------------------------------- *
@@ -141,9 +164,14 @@ export function draggable<T>(
 
   node.addEventListener('dragstart', handleDragStart);
 
+  const sub = params.item.subscribe(state => {
+    node.draggable = state.draggable
+  })
+
   return {
     update,
     destroy() {
+      sub()
       node.removeEventListener('dragstart', handleDragStart);
     },
   } as const;
@@ -158,35 +186,42 @@ export function droppable<TExpected>(
   node: HTMLElement,
   params: DroppableActionParams<TExpected>
 ) {
-    // TODO: test dragCounter
-  let dragCounter = 0; // track nested dragenter/dragleave
 
-  async function handleDragOver(ev: DragEvent) {
-    const payload = await extractPayload(ev);
-    if (!payload) return; // unknown drag source → ignore for now
-
-    if (params.target.ignore?.includes(payload.origin)) {
-      return; // reject — origin on blacklist
-    }
+    async function handleDragOver(ev: DragEvent) {
+    // TODO: implement blacklist based on target.ignore and origin  of the drag event
+    //       although I think we only do that for
 
     ev.preventDefault(); // signal drop allowed
-    if (dragCounter === 0) params.target.setDragover(true, ev);
-    dragCounter++;
+    params.target.setDragover(true, ev);
   }
 
   function handleDragLeave(ev: DragEvent) {
-    dragCounter = Math.max(dragCounter - 1, 0);
-    if (dragCounter === 0) params.target.setDragover(false, ev);
+    params.target.setDragover(false, ev);
   }
 
   async function handleDrop(ev: DragEvent) {
     ev.preventDefault();
-    dragCounter = 0;
     params.target.setDragover(false, ev);
 
-    const payload = await extractPayload(ev);
+    let payload: DraggablePayload | null
+    if (ev.dataTransfer?.files.length) {
+      payload = await extractExternal(ev)
+    } else {
+      payload = extractPayload(ev);
+    }
+    
     if (!payload) return;
-    if (params.target.ignore?.includes(payload.origin)) return;
+    // 
+    // TODO: what do we do with external drop?
+    //       that is the middleware I was referring to
+    //       client should probably receive that before the element
+    //       for example to persist those entities
+    if (payload.origin == 'external') {
+        if (!externalHandler) {
+            return console.warn("No external handler registered")
+        }
+        await externalHandler(payload as TExpected)
+    }
 
     // Convert to target‑specific form
     const deserialized = params.target.deserialize(
@@ -220,4 +255,6 @@ export function droppable<TExpected>(
 
 registerAdapter(imageFileAdapter);
 registerAdapter(noteFileAdapter);
+
+export const defaultAdapters = [imageFileAdapter, noteFileAdapter]
 
