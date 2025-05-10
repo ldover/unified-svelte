@@ -1,20 +1,5 @@
-/*
- dnd.ts — minimal v0.2 implementation of the generic drag‑and‑drop layer
- ----------------------------------------------------------------------
- This module exposes:
-   • Core interfaces (Draggable / Droppable / ExternalAdapter …)
-   • registerAdapter() + default adapters
-   • Svelte actions:  draggable(node, { item })  &  droppable(node, { target })
-
- Notes
- -----
- * Keeps the surface exactly as in the revised spec sent in chat.
- * Stringifies the full DraggablePayload under the custom MIME «application/x‑unified».
- * Provides a WeakMap optimisation hook (currently unused for simplicity — can be
-   enabled later without breaking API).
-*/
-
 import type { Readable } from 'svelte/store';
+import { imageFileAdapter, noteFileAdapter } from './dnd-adapters.js';
 
 /* ---------------------------------------------------------------- *
  * 1.  Core types & constants
@@ -60,8 +45,8 @@ export interface Droppable<TExpected = unknown>
  * ---------------------------------------------------------------- */
 
 export interface ExternalAdapter {
-  match(dt: DataTransfer): boolean;
-  parse(dt: DataTransfer): Promise<DraggablePayload | null>;
+  match(dt: File): boolean;
+  parse(dt: File): Promise<DraggablePayload | null>;
 }
 
 const adapters: ExternalAdapter[] = [];
@@ -70,39 +55,6 @@ const adapters: ExternalAdapter[] = [];
 export function registerAdapter(adapter: ExternalAdapter): void {
   adapters.push(adapter);
 }
-
-/* Built‑in adapters — extremely thin, illustrative stubs  */
-
-// TODO: probably these parsed external payloads are passed back to the client to
-// decide what to do with them: whether to create new entities or ignore
-registerAdapter({
-  /* «text/plain» → string */
-  match: (dt) => dt.types?.includes('text/plain') ?? false,
-  async parse(dt) {
-    const txt = dt.getData('text/plain');
-    if (!txt) return null;
-    return { origin: 'external:text', data: txt };
-  },
-});
-
-registerAdapter({
-  /* «text/uri-list» → URL string[] */
-  match: (dt) => dt.types?.includes('text/uri-list') ?? false,
-  async parse(dt) {
-    const raw = dt.getData('text/uri-list');
-    if (!raw) return null;
-    const urls = raw.split(/\r?\n/).filter(Boolean);
-    return { origin: 'external:uri', data: urls };
-  },
-});
-
-registerAdapter({
-  /* Files → FileList */
-  match: (dt) => dt.files && dt.files.length > 0,
-  async parse(dt) {
-    return { origin: 'external:file', data: Array.from(dt.files) };
-  },
-});
 
 /* ---------------------------------------------------------------- *
  * 3.  Utility helpers
@@ -263,9 +215,9 @@ export function droppable<TExpected>(
 }
 
 /* ---------------------------------------------------------------- *
- * 5.  Re‑export default adapters so apps can opt‑out if needed
+ * 5.  Register adapters
  * ---------------------------------------------------------------- */
 
-export const plainTextAdapter = adapters[0];
-export const uriListAdapter  = adapters[1];
-export const fileAdapter     = adapters[2];
+registerAdapter(imageFileAdapter);
+registerAdapter(noteFileAdapter);
+
