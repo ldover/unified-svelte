@@ -6,7 +6,6 @@
   import { draggable } from './dnd.js'
 
   export let item: SvelteListItem<any>
-
   export let index: number
   export let selected: boolean
   export let nextSelected: boolean
@@ -17,9 +16,21 @@
   export let last: boolean
 
   let list: SvelteList<any, any> = getContext('list')
-
   let isFocusOnClick = list.options.focusOn == 'click'
-  
+
+  // bundle all the props for easy spreading
+  $: props = {
+    index,
+    item,
+    selected,
+    nextSelected,
+    prevSelected,
+    focused,
+    focusedGroup,
+    first,
+    last
+  }
+
   onMount(() => {
     item.mount()
   })
@@ -29,40 +40,29 @@
   })
 </script>
 
-
-<button id={item.id} 
-        data-idx={index} 
-        use:focusOnClick={isFocusOnClick}
-        use:draggable={{item}}
-        on:click on:focus on:blur on:keydown>
+<button
+  id={item.id}
+  data-idx={index}
+  use:focusOnClick={isFocusOnClick}
+  use:draggable={{ item, disabled: !!list.options.dragHandle }}
+  on:click
+  on:focus
+  on:blur
+  on:keydown
+>
   <svelte:component
     this={$item.component}
-    {index}
-    {item}
-    {selected}
-    {nextSelected}
-    {prevSelected}
-    {focused}
-    {focusedGroup}
-    {first}
-    {last}
+    {...props}
   >
-  <svelte:fragment slot="drag-handle">
-    <!-- TODO: spread props to reuse -->
-    {#if list.options.dragHandle}
-      <svelte:component {item} 
-                        {index}
-                        {selected}
-                        {nextSelected}
-                        {prevSelected}
-                        {focused}
-                        {focusedGroup}
-                        {first}
-                        {last}
-      this={list.options.dragHandle}/>
-  {/if}
-  </svelte:fragment>
-</svelte:component>
+    <svelte:fragment slot="drag-handle">
+      {#if list.options.dragHandle}
+        <svelte:component
+          this={list.options.dragHandle}
+          {...props}
+        />
+      {/if}
+    </svelte:fragment>
+  </svelte:component>
 </button>
 
 <style>
@@ -76,4 +76,3 @@
     outline: none;
   }
 </style>
-

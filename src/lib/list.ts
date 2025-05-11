@@ -554,10 +554,8 @@ export class SvelteList<Y extends ID, T extends Content>
   }
 
   deserialize(payload: string[]): SvelteListItem<T>[] {
-    console.log('deserialize', payload)
     const ids = payload
     const dropped: SvelteListItem<T>[] = []
-    console.log(this._ids)
     ids.forEach(id => {
       const item = this._ids.get(id)
       if (!item) {
@@ -572,7 +570,6 @@ export class SvelteList<Y extends ID, T extends Content>
   // In the simplest case what is being dragged? SvelteListItems...
   drop(ev: DragEvent, payload: SvelteListItem<T>[], origin: string): void {
     // TODO: this.options.handlers.drop.call
-    console.log('dropping', {payload, origin})
 
     function areSetsEqual(a: Set<string>, b: Set<string>) {
       if (a.size !== b.size) return false;

@@ -116,6 +116,7 @@ async function extractExternal(ev: DragEvent): Promise<DraggablePayload | null> 
 /** Params for the `draggable` action. */
 export interface DraggableActionParams<T = unknown> {
   item: Draggable<T>;
+  disabled: boolean;
 }
 
 /**
@@ -127,6 +128,7 @@ export function draggable<T>(
   node: HTMLElement,
   params: DraggableActionParams<T>
 ) {
+  if (params.disabled) return
   // Ensure the DOM element itself is draggable
   node.draggable = params.item.draggable;
 
