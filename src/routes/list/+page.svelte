@@ -1,6 +1,6 @@
 <!-- routes/list/+page.svelte -->
 <script lang="ts">
-    import DragHandleUi from '$lib/DragHandleUI.svelte'
+  import DragHandleUi from '$lib/DragHandleUI.svelte'
   import { ListSelection, SvelteList } from '$lib/list.js'
   import SvelteListUI from '$lib/SvelteListUI.svelte'
   import BasicListItemUi from './components/BasicListItemUI.svelte'
@@ -18,7 +18,7 @@
     }))
   }
 
-  let list = new SvelteList(data(20), builder, {
+  let list = new SvelteList(data(10), builder, {
     id: 'simple-list',
     selection: 'multi',
     insertionBar: CustomInsertionBarUi,

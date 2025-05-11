@@ -1,9 +1,10 @@
 // lib/list.ts
-import type { HoverData, HoverOptions } from './drag.js'
+import type { DraggablePayload, Droppable, DroppableState, Draggable, DraggableState } from './dnd.js'
+import { findInsertion, type HoverData, type HoverOptions, findMove, findClosest, calculateHover } from './drag.js'
 import { SvelteReactiveComponent } from './reactive.js'
 import { inView, insert, mergeOptions } from './util.js'
 
-interface SvelteListProps<T extends Content> {
+interface SvelteListProps<T extends Content> extends DroppableState {
   items: SvelteListItem<T>[]
   selection: ListSelection | null
   e: HTMLElement | null
@@ -426,7 +427,7 @@ export interface List<Y extends ID, T extends Content> extends SvelteListProps<T
   getByContentId(id: string): SvelteListItem<T> | null
 }
 
-export interface SvelteListItemProps<T extends Content> {
+export interface SvelteListItemProps<T extends Content> extends DraggableState {
   id: string
   content: T
   component: any
@@ -442,7 +443,8 @@ const buildItems = <Y extends ID, T extends Content>(
   builder: ListItemBuilder<Y, T>,
   listId: string,
   cache: Map<string, SvelteListItem<T>>,
-  useCache: boolean
+  useCache: boolean,
+  list: SvelteList<Y, T>
 ) => {
   return data.map((d) => {
     const id = `${listId}-${d.id}`
@@ -454,7 +456,7 @@ const buildItems = <Y extends ID, T extends Content>(
       }
     }
     const { content, options = {} } = builder(d)
-    item = new SvelteListItem(id, content, options)
+    item = new SvelteListItem(id, content, options, list)
     useCache && cache.set(id, item)
     return item
   })
@@ -468,10 +470,14 @@ interface ListOptions {
   focusOn: 'click' | 'mousedown' // default focus on click (although might be more web-native if focus on 'mousedown' is default)
   selection: 'multi' | 'single'
   dragHandle: any // TODO:type svelte component
+  dropIgnore: string[]
   insertionBar: any // TODO: type svelte component
+  serialize(item: SvelteListItem<any>): string
+  getDragImage(this: SvelteList<any, any>, item: SvelteListItem<any>): HTMLElement | null
   handlers?: {
     click?: Handler<MouseEvent>
     keydown?: Handler<KeyboardEvent>
+    drop?: Handler<DragEvent>
   }
 }
 
@@ -497,22 +503,31 @@ function defaultOptions(): ListOptions {
     focusOn: 'click', // todo: implement
     selection: 'multi', // todo: implemente
     dragHandle: null,
+    dropIgnore: [],
     insertionBar: null,
-    cache: true
+    cache: true,
+    serialize: (item) => item.id,
+    getDragImage: () => null
   }
 }
 
 export class SvelteList<Y extends ID, T extends Content>
   extends SvelteReactiveComponent<SvelteListProps<T>>
-  implements List<Y, T>
+  implements List<Y, T>, Droppable<SvelteListItem<T>>
 {
   public listId: string
+  public ignore?: string[] | undefined
 
-  private _ids = new Set<string>()
+  private _ids = new Map<string, SvelteListItem<T>>()
   private _cache: Map<string, SvelteListItem<T>>
   private _useCache: boolean
-
+  
+  private data: HoverData | null = null
+  private closest: { index: number, e: HTMLElement} | null = null
+  
+  
   public readonly options: ListOptions
+  public bar: InsertionBar
 
   constructor(
     data: Y[],
@@ -525,24 +540,111 @@ export class SvelteList<Y extends ID, T extends Content>
 
     const mergedOptions = mergeOptions(defaultOptions(), options)
     const cache = new Map<string, SvelteListItem<T>>()
-    const items = buildItems(data, builder, mergedOptions.id, cache, mergedOptions.cache)
-    super({ selection: null, items, focused: null, e: null })
+    super({ selection: null, items: [], focused: null, e: null, dragover: false })
     this._useCache = mergedOptions.cache
     this._cache = cache
     this.options = mergedOptions
     this.listId = this.options.id
+    this.ignore = this.options.dropIgnore
+    this.bar = new InsertionBar({ component: this.options.insertionBar })
+
+    const items = buildItems(data, builder, mergedOptions.id, cache, mergedOptions.cache, this)
+    this._addId(...items)
+    this.set('items', items)  // TODO: can we redesign the SvelteReactive so we can avoid setting
+  }
+
+  deserialize(payload: string[]): SvelteListItem<T>[] {
+    console.log('deserialize', payload)
+    const ids = payload
+    const dropped: SvelteListItem<T>[] = []
+    console.log(this._ids)
+    ids.forEach(id => {
+      const item = this._ids.get(id)
+      if (!item) {
+        return console.warn('does not have id', id)
+      }
+      dropped.push(item)
+    })
+
+    return dropped
+  }
+
+  // In the simplest case what is being dragged? SvelteListItems...
+  drop(ev: DragEvent, payload: SvelteListItem<T>[], origin: string): void {
+    // TODO: this.options.handlers.drop.call
+    console.log('dropping', {payload, origin})
+
+    function areSetsEqual(a: Set<string>, b: Set<string>) {
+      if (a.size !== b.size) return false;
+      for (const item of a) {
+        if (!b.has(item)) return false;
+      }
+      return true;
+    }
+
+    if (!(this.closest && this.data)) return  // TODO: simplify closest/data
+    if (this.data.pos == 0) return  // Don't drop into the list when drop occurs on the item
+
+    const insertionIndex = findInsertion(this.data)  
+
+    if (origin == this.listId) {  
+      let fromSelection: ListSelection | null = null
+      const selection = this.getProp('selection')
+      const items = this.getProp('items')
+      if (selection) {
+        const s1 = new Set(payload.map(d => d.id))
+        const s2 = new Set(selection.pick(items).map(i => i.id))
+        if (areSetsEqual(s1, s2)) {  // If we're dropping a selection
+          fromSelection = selection
+        }
+      }
+
+      if (!fromSelection) {
+        fromSelection = ListSelection.fromIndices(payload.map(p => items.findIndex(i => p.id == i.id)).filter(index => index >= 0))
+      }
+
+      if (fromSelection) {
+        this.move(fromSelection, insertionIndex);
+      }
+
+    } else {
+      throw new Error('not implemented')
+        // TODO
+        //       if it doesn't come from its own origin
+        //       it treats it like insert
+        // But it can only insert supported kinds — perhaps add 'allowedKinds`?
+    }
+  }
+
+  setDragover(event: DragEvent, dragover: boolean) {
+    this.closest = findClosest('[data-idx]', event)
+    const e = this.e
+  
+    if (this.closest && e) {
+      const item = this.items[this.closest.index]
+      this.data = calculateHover(this.closest.e, event, item.options.hover)
+      this.bar.show(this.closest.e, event, this.e , this.data)
+    }
+
+    if (dragover === this.dragover) return
+
+    if (!dragover) {
+      this.bar.hide()
+    }
+
+    this.set('dragover', dragover)
   }
 
   setData(data: Y[]): void {
     this._ids.clear()
-    const items = buildItems(data, this.builder, this.listId, this._cache, this._useCache)
+    const items = buildItems(data, this.builder, this.listId, this._cache, this._useCache, this)
     this._addId(...items)
     // Reset selection when reseting the list
     this.update({ items, selection: null })
   }
 
   add(item: Y): void {
-    const newItem = buildItems([item], this.builder, this.listId, this._cache, this._useCache)[0]
+    const newItem = buildItems([item], this.builder, this.listId, this._cache, this._useCache, this)[0]
     this._addId(newItem)
     this.set('items', [...this.items, newItem])
   }
@@ -552,7 +654,7 @@ export class SvelteList<Y extends ID, T extends Content>
       throw new Error('Index out of bounds')
     }
 
-    const newItem = buildItems([item], this.builder, this.listId, this._cache, this._useCache)[0]
+    const newItem = buildItems([item], this.builder, this.listId, this._cache, this._useCache, this)[0]
     this._addId(newItem)
     const items = insert(this.items, newItem, i)
 
@@ -583,7 +685,7 @@ export class SvelteList<Y extends ID, T extends Content>
     const n = this.items.length;
     if (to < 0 || to > n) throw new RangeError('`to` is out of bounds');
     if (typeof from == 'number') {
-      if (from < 0 || from >= n) throw new RangeError('`from` is out of bounds');
+      if (from < 0 || from > n) throw new RangeError('`from` is out of bounds');
     }
     const sel = typeof from === 'number' ? ListSelection.single(from) : from;
 
@@ -817,13 +919,13 @@ export class SvelteList<Y extends ID, T extends Content>
     return []
   }
 
+  get dragover(): boolean {
+    return this.getProp('dragover')
+  }
+
   /* ------------------------------------------------------------------ */
   /*  Private helpers                                                    */
   /* ------------------------------------------------------------------ */
-
-  #coerceSel(sel: number | ListSelection): ListSelection {
-    return typeof sel === 'number' ? ListSelection.single(sel) : sel
-  }
 
   private _addId(...items: SvelteListItem<T>[]) {
     items.forEach((item) => {
@@ -833,7 +935,7 @@ export class SvelteList<Y extends ID, T extends Content>
         )
       }
     })
-    items.forEach((item) => this._ids.add(item.id))
+    items.forEach((item) => this._ids.set(item.id, item))
   }
 
   private _removeId(...items: SvelteListItem<T>[]) {
@@ -846,6 +948,7 @@ export class SvelteList<Y extends ID, T extends Content>
 interface ListItemOptions {
   component: object | null
   hover: HoverOptions
+  draggable: boolean
 }
 
 interface ID {
@@ -926,17 +1029,20 @@ export class InsertionBar extends SvelteReactiveComponent<InsertionBarProps> {
 
 
 export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
-  SvelteListItemProps<T>
-> {
+  SvelteListItemProps<T>> implements Draggable<string[]> {
   private _mounted: boolean = false
 
   public readonly options: ListItemOptions
 
-  constructor(id: string, content: T, options: Partial<ListItemOptions>) {
+  public origin?: string | undefined
+  public effectAllowed?: 'link' | 'none' | 'copy' | 'copyLink' | 'copyMove' | 'linkMove' | 'move' | 'all' | 'uninitialized' | undefined
+
+  constructor(id: string, content: T, options: Partial<ListItemOptions>, private list: SvelteList<any, any>) {
     const merged: ListItemOptions = mergeOptions(
       {
         component: null,
-        hover: { threshold: 0.2 }
+        hover: { threshold: 0.2 },
+        draggable: true
       },
       options || {}
     )
@@ -944,10 +1050,23 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
     super({
       id: id,
       content,
-      component: merged.component
+      component: merged.component,
+      draggable: merged.draggable
     })
 
     this.options = merged
+    this.origin = this.list.listId
+  }
+
+  serialize(): string[] {
+    const selection = this.list.getProp('selection')
+    const index = this.list.items.findIndex(i => i.id == this.id)
+    if (selection && selection.contains(index)) {
+      // If in the selection, serialize entire selectino
+      return selection.pick(this.list.items).map(item => item.id)
+    } else {
+      return [this.id]
+    }
   }
 
   get id(): string {
@@ -962,6 +1081,10 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
     return this.getProp('content')
   }
 
+  get draggable() {
+    return this.getProp('draggable')
+  }
+
   focus() {
     if (document.activeElement?.id !== this.id) {
       const e = document.getElementById(this.id)
@@ -974,6 +1097,10 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
 
   focused(): boolean {
     return document.activeElement?.id === this.id
+  }
+
+  getDragImage(): HTMLElement | null {
+    return this.list.options.getDragImage?.call(this.list, this) || null
   }
 
   mount(): void {
@@ -1035,3 +1162,4 @@ function checkSelection(
     )
   }
 }
+

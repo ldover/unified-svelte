@@ -26,7 +26,7 @@ export interface Draggable<T = unknown> extends Readable<DraggableState> {
 /** Normalised payload placed on the DataTransfer */
 export interface DraggablePayload<T = unknown> {
   origin: string;
-  data: T;
+  data: T[];
 }
 
 /**
@@ -34,9 +34,9 @@ export interface DraggablePayload<T = unknown> {
  */
 export interface Droppable<TExpected = unknown>
   extends Readable<DroppableState> {
-  deserialize(str: string): TExpected;
-  drop(payload: TExpected, ev: DragEvent): void | Promise<void>;
-  setDragover(on: boolean, ev: DragEvent): void;
+  deserialize(str: string[]): TExpected[];
+  drop(ev: DragEvent, payload: TExpected[], origin: string): void | Promise<void>;
+  setDragover(ev: DragEvent, on: boolean): void;
   ignore?: string[]; // list of origins to reject
 }
 
@@ -56,7 +56,7 @@ export function registerAdapter(adapter: ExternalAdapter): void {
   adapters.push(adapter);
 }
 
-let externalHandler: ((data: unknown) => void) | null = null
+let externalHandler: ((target: Droppable, data: unknown[]) => void) | null = null
 
 /** To parse files */
 export function registerExternalHandler(options: { adapters?: ExternalAdapter[], onHandle: (data: unknown) => void}): void {
@@ -83,14 +83,13 @@ export const handleFile = async (f: File) => {
 }
 
 /** Try to read internal payload first; else consult adapters. */
-function extractPayload(ev: DragEvent): DraggablePayload | null {
+function extractPayload(ev: DragEvent): string | null {
   const dt = ev.dataTransfer;
   if (!dt) return null;
 
   if (dt.types?.includes(UNIFIED_MIME)) {
     try {
-      const json = dt.getData(UNIFIED_MIME);
-      return JSON.parse(json) as DraggablePayload;
+      return dt.getData(UNIFIED_MIME);
     } catch {
       return null;
     }
@@ -143,6 +142,8 @@ export function draggable<T>(
       data: params.item.serialize(),
     };
 
+    console.log(payload)
+
     ev.dataTransfer?.setData(UNIFIED_MIME, JSON.stringify(payload));
 
     if (params.item.effectAllowed) {
@@ -192,43 +193,48 @@ export function droppable<TExpected>(
     //       although I think we only do that for
 
     ev.preventDefault(); // signal drop allowed
-    params.target.setDragover(true, ev);
+    params.target.setDragover(ev, true);
   }
 
   function handleDragLeave(ev: DragEvent) {
-    params.target.setDragover(false, ev);
+    params.target.setDragover(ev, false);
   }
 
   async function handleDrop(ev: DragEvent) {
     ev.preventDefault();
-    params.target.setDragover(false, ev);
+    params.target.setDragover(ev, false);
 
-    let payload: DraggablePayload | null
-    if (ev.dataTransfer?.files.length) {
-      payload = await extractExternal(ev)
-    } else {
-      payload = extractPayload(ev);
-    }
+    let payload: string | null = null
+
+    // TODO: add external
+    // if (ev.dataTransfer?.files.length) {
+    //   payload = await extractExternal(ev)
+    // } else {
+        // }
+    payload = extractPayload(ev);
     
     if (!payload) return;
-    // 
-    // TODO: what do we do with external drop?
-    //       that is the middleware I was referring to
-    //       client should probably receive that before the element
-    //       for example to persist those entities
-    if (payload.origin == 'external') {
-        if (!externalHandler) {
-            return console.warn("No external handler registered")
-        }
-        await externalHandler(payload as TExpected)
-    }
+
+    const {origin, data} = JSON.parse(payload)
+
+    // Siginal to client to handle external drop
+    // TODO: add back
+    // if (payload.origin == 'external') {
+    //     if (!externalHandler) {
+    //         return console.warn("No external handler registered")
+    //     }
+    //     // TODO: tighten the 'any' type
+    //     await externalHandler(params.target, payload as any)
+    // }
 
     // Convert to target‑specific form
+    // TODO: I am not sure about this: seems ugly strignifying again like this
     const deserialized = params.target.deserialize(
-      JSON.stringify(payload.data)
+      data
     );
 
-    await params.target.drop(deserialized as TExpected, ev);
+    // TODO: see if we can avoid "as" type casting
+    await params.target.drop(ev, deserialized, origin)
   }
 
   function update(newParams: DroppableActionParams<TExpected>) {

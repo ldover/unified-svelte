@@ -1,9 +1,9 @@
 <!-- lib/SvelteListUI.svelte -->
 <script lang="ts">
-  import { ListSelection, type Handler, type SvelteList, InsertionBar } from '$lib/list.js'
+  import { ListSelection, type Handler, type SvelteList } from '$lib/list.js'
   import SvelteListItemUI from '$lib/SvelteListItemUI.svelte'
   import { onMount, setContext } from 'svelte'
-  import { calculateHover, findClosest, findInsertion, findMove, type HoverData } from './drag.js'
+  import { droppable } from './dnd.js'
   import InsertionBarUi from './InsertionBarUI.svelte'
 
   export let list: SvelteList<any, any>
@@ -58,6 +58,8 @@
       }
     } else if (onlyModifier(e, 'shiftKey')) {
       if (this.selection) {
+        // TODO: there's an edge case here when we shift click on the same element it extends selection
+        // [ 0 1 2(head) 3(anchor), 4, 5 ] — if we shift click on 2, it will extend selection to the 4, then to 5 and so one
         newSelection = this.selection.replaceRange(
           this.selection.main.extend(index),
           this.selection.mainIndex!
@@ -135,47 +137,13 @@
     list.set('focused', null)
   }
 
-  
-  let bar: InsertionBar = new InsertionBar({ component: list.options.insertionBar })
-  let data: HoverData | null = null
-  let closest: { index: number, e: HTMLElement} | null = null
-  /* TODO: requestAnimationFrame */
-  function handleDragOver(ev: DragEvent) {
-    ev.preventDefault();           // allow drop
-  
-    closest = findClosest('[data-idx]', ev)
-    
-    if (closest) {
-      const item = list.items[closest.index]
-      data = calculateHover(closest.e, ev, item.options.hover)
-      bar.show(closest.e, ev, e , data)
-    }
-  }
-
-  function handleDrop(ev: DragEvent) {
-    ev.preventDefault();
-  
-    if (closest) {
-      if (!data) {throw new Error('data should be set')}
-      
-      if (data.pos == 0) {
-        return  // Don't drop into the list when drop occurs on the item
-      }
-      let selection = list.selection ?? ListSelection.single(closest.index)
-      
-      const insertionIndex = findInsertion(data)
-      list.move(selection, insertionIndex);
-      bar.hide()
-    }
-  }
+  let bar = list.bar
 </script>
 
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <div bind:this={e}  
-     on:dragover={handleDragOver}
-     on:dragleave={() => bar.hide()}
-     on:drop={handleDrop}
-      class={classes.join(' ')} {style}>
+     use:droppable={{ target: list }}
+     class={classes.join(' ')} {style}>
   <InsertionBarUi {bar} />
   {#each $list.items as item, i (item.id)}
     <SvelteListItemUI

@@ -1,11 +1,7 @@
 <script lang="ts">
-  import { getContext } from 'svelte'
-  import { ListSelection, type SvelteList, type SvelteListItem } from './list.js'
+  import { draggable } from './dnd.js'
+  import { type SvelteListItem } from './list.js'
 
-  //   import { draggable } from '../drag-and-drop/actions'
-  //   import type { Draggable } from '../drag-and-drop'
-
-  // TODO: DragHandle that implements Draggable; or just Draggable?
   export let item: SvelteListItem<any>
 
   export let index: number
@@ -18,43 +14,12 @@
   export let last: boolean
 
   let color: string = '#6b7280'
-
-  let list: SvelteList<any, any> = getContext('list')
-
-  function onDragStart(e: DragEvent) {
-    const sel = list.selection?.contains(index)
-      ? list.selection // drag currently selected block
-      : ListSelection.single(index)
-    // serialise -> store on dataTransfer
-    e.dataTransfer!.setData(
-      'application/x-listselection',
-      JSON.stringify(sel.indices()) // store raw indices
-    )
-    e.dataTransfer!.effectAllowed = 'move'
-
-    // TODO: expose API for the drag image
-    //  Tiger will provide own drag image. although it also needs
-    //  we might also integrate with `Draggable` interface; or rather make Draggable part of these
-    //  unified UI libraries...
-    // Let's leave this for later
-    /* optional “ghost” */
-    const img = document.createElement('div')
-    img.textContent = `${sel.size()} item${sel.size() > 1 ? 's' : ''}`
-    img.style.cssText = 'padding:4px 8px;background:#444;color:white;border-radius:4px;'
-    document.body.appendChild(img)
-    e.dataTransfer!.setDragImage(img, -10, -10)
-    setTimeout(() => img.remove(), 0)
-  }
-
-  console.log('style')
 </script>
 
-<!-- TODO: use:draggable={{ sItem }} -->
 <button
   on:mousedown|stopPropagation
   style="position: absolute;"
-  draggable="true"
-  on:dragstart={onDragStart}
+  use:draggable={{item}}
 >
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
