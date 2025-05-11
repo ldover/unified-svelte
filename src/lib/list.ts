@@ -438,6 +438,8 @@ interface ListItemData<T extends Content> {
   options?: ListItemOptions
 }
 
+const listItemId = <Y extends ID>(listId: string, d: Y) => `${listId}-${d.id}`
+
 const buildItems = <Y extends ID, T extends Content>(
   data: Y[],
   builder: ListItemBuilder<Y, T>,
@@ -447,7 +449,7 @@ const buildItems = <Y extends ID, T extends Content>(
   list: SvelteList<Y, T>
 ) => {
   return data.map((d) => {
-    const id = `${listId}-${d.id}`
+    const id = listItemId(listId, d)
     let item: SvelteListItem<T>
     if (useCache) {
       let item = cache.get(id)
@@ -456,7 +458,7 @@ const buildItems = <Y extends ID, T extends Content>(
       }
     }
     const { content, options = {} } = builder(d)
-    item = new SvelteListItem(id, content, options, list)
+    item = new SvelteListItem(id, content, options, list, d)
     useCache && cache.set(id, item)
     return item
   })
@@ -472,8 +474,9 @@ interface ListOptions {
   dragHandle: any // TODO:type svelte component
   dropIgnore: string[]
   insertionBar: any // TODO: type svelte component
-  serialize(item: SvelteListItem<any>): string
-  getDragImage(this: SvelteList<any, any>, item: SvelteListItem<any>): HTMLElement | null
+  serialize?(item: SvelteListItem<any>): unknown
+  deserialize?(item: unknown): unknown
+  getDragImage(items: SvelteListItem<any>[]): HTMLElement | null
   handlers?: {
     click?: Handler<MouseEvent>
     keydown?: Handler<KeyboardEvent>
@@ -506,14 +509,13 @@ function defaultOptions(): ListOptions {
     dropIgnore: [],
     insertionBar: null,
     cache: true,
-    serialize: (item) => item.id,
     getDragImage: () => null
   }
 }
 
 export class SvelteList<Y extends ID, T extends Content>
   extends SvelteReactiveComponent<SvelteListProps<T>>
-  implements List<Y, T>, Droppable<SvelteListItem<T>>
+  implements List<Y, T>, Droppable<Y>
 {
   public listId: string
   public ignore?: string[] | undefined
@@ -538,6 +540,12 @@ export class SvelteList<Y extends ID, T extends Content>
       throw new Error(`'Invalid options: dragHandle has to be provided when focusOn is set to 'click'`)
     }
 
+    if (options.serialize && !options.deserialize || 
+        !options.serialize && options.deserialize
+      ) {
+      throw new Error('Invalid options: both serialize and deserialize have to be provided or none')
+    }
+
     const mergedOptions = mergeOptions(defaultOptions(), options)
     const cache = new Map<string, SvelteListItem<T>>()
     super({ selection: null, items: [], focused: null, e: null, dragover: false })
@@ -553,31 +561,25 @@ export class SvelteList<Y extends ID, T extends Content>
     this.set('items', items)  // TODO: can we redesign the SvelteReactive so we can avoid setting
   }
 
-  deserialize(payload: string[]): SvelteListItem<T>[] {
-    const ids = payload
-    const dropped: SvelteListItem<T>[] = []
-    ids.forEach(id => {
-      const item = this._ids.get(id)
-      if (!item) {
-        return console.warn('does not have id', id)
-      }
-      dropped.push(item)
-    })
+  deserialize(payload: string | string[]): Y | Y[] {
+    // Custom deserialize
+    if (this.options.deserialize) {
+      return this.options.deserialize(payload)
+    }
 
-    return dropped
+    let items: string[]
+    if (typeof payload == 'string') {
+      items = [payload]
+    } else {
+      items = payload
+    }
+    
+    return items.map(id => this._ids.get(id)).filter(Boolean).map(item => (item as SvelteListItem<any>).data as Y)
   }
 
   // In the simplest case what is being dragged? SvelteListItems...
-  drop(ev: DragEvent, payload: SvelteListItem<T>[], origin: string): void {
+  drop(ev: DragEvent, payload: Y[], origin: string): void {
     // TODO: this.options.handlers.drop.call
-
-    function areSetsEqual(a: Set<string>, b: Set<string>) {
-      if (a.size !== b.size) return false;
-      for (const item of a) {
-        if (!b.has(item)) return false;
-      }
-      return true;
-    }
 
     if (!(this.closest && this.data)) return  // TODO: simplify closest/data
     if (this.data.pos == 0) return  // Don't drop into the list when drop occurs on the item
@@ -589,8 +591,8 @@ export class SvelteList<Y extends ID, T extends Content>
       const selection = this.getProp('selection')
       const items = this.getProp('items')
       if (selection) {
-        const s1 = new Set(payload.map(d => d.id))
-        const s2 = new Set(selection.pick(items).map(i => i.id))
+        const s1 = new Set(payload.map(item => item.id))
+        const s2 = new Set(selection.pick(items).map(i => (i.data as Y).id))
         if (areSetsEqual(s1, s2)) {  // If we're dropping a selection
           fromSelection = selection
         }
@@ -605,11 +607,11 @@ export class SvelteList<Y extends ID, T extends Content>
       }
 
     } else {
-      throw new Error('not implemented')
-        // TODO
-        //       if it doesn't come from its own origin
-        //       it treats it like insert
-        // But it can only insert supported kinds — perhaps add 'allowedKinds`?
+      payload.reverse().forEach(item => {
+        if (!this._ids.has(listItemId(this.listId, item))) {
+          this.insert(item, insertionIndex)
+        }
+      })
     }
   }
 
@@ -1034,12 +1036,17 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
   public origin?: string | undefined
   public effectAllowed?: 'link' | 'none' | 'copy' | 'copyLink' | 'copyMove' | 'linkMove' | 'move' | 'all' | 'uninitialized' | undefined
 
-  constructor(id: string, content: T, options: Partial<ListItemOptions>, private list: SvelteList<any, any>) {
+  constructor(id: string, 
+              content: T, 
+              options: Partial<ListItemOptions>, 
+              private list: SvelteList<any, any>, 
+              public readonly data: unknown
+              ) {
     const merged: ListItemOptions = mergeOptions(
       {
         component: null,
         hover: { threshold: 0.2 },
-        draggable: true
+        draggable: true,
       },
       options || {}
     )
@@ -1055,15 +1062,19 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
     this.origin = this.list.listId
   }
 
-  serialize(): string[] {
+  serialize(): unknown[] {
     const selection = this.list.getProp('selection')
     const index = this.list.items.findIndex(i => i.id == this.id)
+
+    let items: SvelteListItem<any>[]
     if (selection && selection.contains(index)) {
-      // If in the selection, serialize entire selectino
-      return selection.pick(this.list.items).map(item => item.id)
+      // If in the selection, serialize entire selection
+      items = selection.pick(this.list.items)
     } else {
-      return [this.id]
+      items = [this]
     }
+
+    return items.map(item => this.list.options.serialize ? this.list.options.serialize(item) : item.id)
   }
 
   get id(): string {
@@ -1096,8 +1107,21 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
     return document.activeElement?.id === this.id
   }
 
-  getDragImage(): HTMLElement | null {
-    return this.list.options.getDragImage?.call(this.list, this) || null
+  getDragImage(): HTMLElement | null {   
+     const selection = this.list.getProp('selection')
+     const index = this.list.items.findIndex(i => i.id == this.id)
+ 
+     if (selection && selection.contains(index)) {
+        if (this.list.options.getDragImage) {
+          return this.list.options.getDragImage(selection.pick(this.list.items))
+        }
+        
+        const img = this._defaultDragImage(selection)
+        document.body.appendChild(img)
+        return img
+     } else {
+        return document.getElementById(this.id)
+     }
   }
 
   mount(): void {
@@ -1112,6 +1136,13 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
       this.content.destroy?.()
       this._mounted = false
     }
+  }
+
+  private _defaultDragImage(selection: ListSelection) {
+    const img = document.createElement('div')
+    img.textContent = `${selection.size()} item${selection.size() > 1 ? 's' : ''}`
+    img.style.cssText = 'width: 48px; padding:4px 8px;background:#444;color:white;border-radius:4px;'
+    return img
   }
 }
 
@@ -1158,5 +1189,13 @@ function checkSelection(
       "Selection must be a single item or null when the selection option is configured as 'single'."
     )
   }
+}
+
+function areSetsEqual(a: Set<string>, b: Set<string>) {
+  if (a.size !== b.size) return false;
+  for (const item of a) {
+    if (!b.has(item)) return false;
+  }
+  return true;
 }
 

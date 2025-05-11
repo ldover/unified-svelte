@@ -16,7 +16,7 @@ export interface DroppableState { dragover: boolean }
  * First‑class draggable description used by client components.
  */
 export interface Draggable<T = unknown> extends Readable<DraggableState> {
-  serialize(): T;
+  serialize(): unknown;
   getDragImage(): HTMLElement | null;
   draggable: boolean;
   origin?: string; // component id / namespace
@@ -34,7 +34,7 @@ export interface DraggablePayload<T = unknown> {
  */
 export interface Droppable<TExpected = unknown>
   extends Readable<DroppableState> {
-  deserialize(str: string[]): TExpected[];
+  deserialize(data: unknown): unknown;
   drop(ev: DragEvent, payload: TExpected[], origin: string): void | Promise<void>;
   setDragover(ev: DragEvent, on: boolean): void;
   ignore?: string[]; // list of origins to reject
