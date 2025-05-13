@@ -15,18 +15,18 @@ export interface DroppableState { dragover: boolean }
 /**
  * First‑class draggable description used by client components.
  */
-export interface Draggable<T = unknown> extends Readable<DraggableState> {
-  serialize(): unknown;
+export interface Draggable<P = unknown> extends Readable<DraggableState> {
+  serialize(): P | P[];
   getDragImage(): HTMLElement | null;
   draggable: boolean;
   origin?: string; // component id / namespace
-  effectAllowed?: DataTransfer['effectAllowed'];
+  effectAllowed?: 'copy' | 'move'
 }
 
 /** Normalised payload placed on the DataTransfer */
 export interface DraggablePayload<T = unknown> {
   origin: string;
-  data: T[];
+  data: T;
 }
 
 /**
@@ -34,33 +34,34 @@ export interface DraggablePayload<T = unknown> {
  */
 export interface Droppable<TExpected = unknown>
   extends Readable<DroppableState> {
-  deserialize(data: unknown): unknown;
+  deserialize(data: string): TExpected | TExpected[];
   drop(ev: DragEvent, payload: TExpected[], origin: string): void | Promise<void>;
   setDragover(ev: DragEvent, on: boolean): void;
   ignore?: string[]; // list of origins to reject
 }
 
 /* ---------------------------------------------------------------- *
- * 2.  External‑adapter registry
+ * 2.  File-adapter registry
  * ---------------------------------------------------------------- */
 
-export interface ExternalAdapter {
+export interface FileAdapter {
   match(dt: File): boolean;
   parse(dt: File): Promise<unknown | null>;
 }
 
-const adapters: ExternalAdapter[] = [];
+const adapters: FileAdapter[] = [];
 
 /** Register a new adapter (e.g. plain text, URI list, files). */
-export function registerAdapter(adapter: ExternalAdapter): void {
+export function registerAdapter(adapter: FileAdapter): void {
   adapters.push(adapter);
 }
 
-let externalHandler: ((target: Droppable, data: unknown[]) => void) | null = null
+type FileHandler = (target: Droppable, data: unknown[]) => unknown[]
+let fileHandler: FileHandler| null = null
 
 /** To parse files */
-export function registerExternalHandler(options: { adapters?: ExternalAdapter[], onHandle: (data: unknown) => void}): void {
-    externalHandler =  options.onHandle
+export function registerFileHandler(options: { adapters?: FileAdapter[], onHandle: FileHandler }): void {
+    fileHandler =  options.onHandle
     if (options.adapters) {
         options.adapters.forEach(a => registerAdapter(a))
     }
@@ -98,15 +99,10 @@ function extractPayload(ev: DragEvent): string | null {
   return null
 }
 
-async function extractExternal(ev: DragEvent): Promise<DraggablePayload | null> {
+async function extractFiles(ev: DragEvent) {
   const dt = ev.dataTransfer;
   if (!dt) return null;
-  const data = await Promise.all([...dt.files].map(handleFile))
-  
-  return {
-    origin: 'external',
-    data
-  }
+  return await Promise.all([...dt.files].map(handleFile))
 }
 
 /* ---------------------------------------------------------------- *
@@ -139,7 +135,7 @@ export function draggable<T>(
       return;
     }
 
-    const payload: DraggablePayload<any> = {
+    const payload: DraggablePayload<T | T[]> = {
       origin: params.item.origin ?? '',
       data: params.item.serialize(),
     };
@@ -152,6 +148,10 @@ export function draggable<T>(
       ev.dataTransfer!.effectAllowed = params.item.effectAllowed;
     } else {
       ev.dataTransfer!.effectAllowed = 'copyMove';
+    }
+
+    if (params.item.effectAllowed == 'move') {
+        // TODO: Remove from parent
     }
 
     const img = params.item.getDragImage?.();
@@ -207,36 +207,42 @@ export function droppable<TExpected>(
     params.target.setDragover(ev, false);
 
     let payload: string | null = null
+    let deserialized: TExpected[]
 
-    // TODO: add external
-    // if (ev.dataTransfer?.files.length) {
-    //   payload = await extractExternal(ev)
-    // } else {
-        // }
-    payload = extractPayload(ev);
-    
-    if (!payload) return;
+    if (ev.dataTransfer?.files.length) {
+      if (!fileHandler) {
+        return console.warn("No file handler registered")
+      }
 
-    const {origin, data} = JSON.parse(payload)
+      let data = await extractFiles(ev)
+      if (!data) return
+      
+      // TODO: tighten the type safety here
+      deserialized = await fileHandler(params.target, data) as TExpected[]
+      if (!deserialized) {
+        return
+      }
 
-    // Siginal to client to handle external drop
-    // TODO: add back
-    // if (payload.origin == 'external') {
-    //     if (!externalHandler) {
-    //         return console.warn("No external handler registered")
-    //     }
-    //     // TODO: tighten the 'any' type
-    //     await externalHandler(params.target, payload as any)
-    // }
+      await params.target.drop(ev, deserialized, 'file')
 
-    // Convert to target‑specific form
-    // TODO: I am not sure about this: seems ugly strignifying again like this
-    const deserialized = params.target.deserialize(
-      data
-    );
+    } else {
+      payload = extractPayload(ev);
+      if (!payload) return;
+      const parsed = JSON.parse(payload) as DraggablePayload
+      origin = parsed.origin
+      let data = parsed.data
 
-    // TODO: see if we can avoid "as" type casting
-    await params.target.drop(ev, deserialized, origin)
+      let deserialized = params.target.deserialize(
+        data
+      );
+  
+      if (!Array.isArray(deserialized)) {
+          deserialized = [deserialized]
+      }
+
+       // TODO: see if we can avoid "as" type casting
+        await params.target.drop(ev, deserialized, origin)
+    }
   }
 
   function update(newParams: DroppableActionParams<TExpected>) {

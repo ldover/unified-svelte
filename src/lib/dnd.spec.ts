@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { draggable, droppable, registerAdapter, type ExternalAdapter, type DraggablePayload } from "./dnd.js";
+import { draggable, droppable, type DraggablePayload } from "./dnd.js";
 
 // ---------------------------------------------------------------------------
 // Minimal DataTransfer stub for jsdom (HTML Drag & Drop API is not implemented)

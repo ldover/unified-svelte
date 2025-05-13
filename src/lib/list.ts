@@ -474,7 +474,7 @@ interface ListOptions {
   dragHandle: any // TODO:type svelte component
   dropIgnore: string[]
   insertionBar: any // TODO: type svelte component
-  serialize?(item: SvelteListItem<any>): unknown
+  serialize?(item: SvelteListItem<any>): string
   deserialize?(item: unknown): unknown
   getDragImage(items: SvelteListItem<any>[]): HTMLElement | null
   handlers?: {
@@ -1034,7 +1034,7 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
   public readonly options: ListItemOptions
 
   public origin?: string | undefined
-  public effectAllowed?: 'link' | 'none' | 'copy' | 'copyLink' | 'copyMove' | 'linkMove' | 'move' | 'all' | 'uninitialized' | undefined
+  public effectAllowed?: 'copy' | 'move'
 
   constructor(id: string, 
               content: T, 
@@ -1062,7 +1062,7 @@ export class SvelteListItem<T extends Content> extends SvelteReactiveComponent<
     this.origin = this.list.listId
   }
 
-  serialize(): unknown[] {
+  serialize(): string[] {
     const selection = this.list.getProp('selection')
     const index = this.list.items.findIndex(i => i.id == this.id)
 

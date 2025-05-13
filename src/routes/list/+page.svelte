@@ -1,4 +1,5 @@
 <script lang=ts>
+    import { registerFileHandler } from "$lib/dnd.js"
     import SingleListPlayground from "./views/SingleListPlayground.svelte"
     import TwoListPlayground from "./views/TwoListPlayground.svelte"
 
@@ -17,6 +18,13 @@
     return data
   }
 
+  const fileHandler = (droppable, files) => {
+    console.log({droppable, files})
+    return null
+  }
+
+  registerFileHandler({onHandle: fileHandler})
+  
   let options = {
     serialize,
     deserialize

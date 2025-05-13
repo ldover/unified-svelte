@@ -1,6 +1,6 @@
 // src/dnd-adapter.ts
 import {
-    type ExternalAdapter,
+    type FileAdapter,
   } from "./dnd.js";
   
   
@@ -22,7 +22,7 @@ import {
     });
   
   /* -------------------- image adapter -------------------------- */
-  export const imageFileAdapter: ExternalAdapter = {
+  export const imageFileAdapter: FileAdapter = {
     match: (file: File) => file.type.startsWith("image/"),
   
     async parse(file: File) {
@@ -52,7 +52,7 @@ import {
   };
   
   /* ------------------ note adapter ------------------------- */
-  export const noteFileAdapter: ExternalAdapter = {
+  export const noteFileAdapter: FileAdapter = {
     match: (file: File) => {
         return /\.md$/i.test(file.name) || 
             file.type.includes('text/plain') ||
