@@ -503,8 +503,8 @@ export type Handler<E extends Event> = (
 function defaultOptions(): ListOptions {
   return {
     id: `list-${Math.round(Math.random() * 100000)}`,
-    focusOn: 'click', // todo: implement
-    selection: 'multi', // todo: implemente
+    focusOn: 'mousedown',
+    selection: 'multi',
     dragHandle: null,
     dropIgnore: [],
     insertionBar: null,

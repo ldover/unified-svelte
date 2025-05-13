@@ -56,7 +56,7 @@ export function registerAdapter(adapter: FileAdapter): void {
   adapters.push(adapter);
 }
 
-type FileHandler = (target: Droppable, data: unknown[]) => unknown[]
+type FileHandler = (target: Droppable, data: unknown[]) => Promise<unknown[]>
 let fileHandler: FileHandler| null = null
 
 /** To parse files */
@@ -112,7 +112,7 @@ async function extractFiles(ev: DragEvent) {
 /** Params for the `draggable` action. */
 export interface DraggableActionParams<T = unknown> {
   item: Draggable<T>;
-  disabled: boolean;
+  disabled?: boolean;
 }
 
 /**

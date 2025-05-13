@@ -16,6 +16,7 @@
 </script>
 
 <div
+  class='list-item'
   class:selected
   class:prevSelected
   class:nextSelected
@@ -36,34 +37,38 @@
     position: absolute;
     left: 0;
     top: 0;
+    padding: 0;
+    margin-top: 4px;
+    margin-left: 4px;
   }
-  div {
+  .list-item {
     position: relative;
     padding: 8px;
     background-color: white;
     border-top: 1px solid transparent;
+    border-left: 6px solid transparent;
   }
 
-  div:not(.first):not(.selected):not(.prevSelected) {
+  .list-item:not(.first):not(.selected):not(.prevSelected) {
     border-top: 1px solid rgb(205, 205, 205);
   }
 
-  .selected {
+  .list-item.selected {
     background: rgba(0, 0, 0, 0.2);
     color: white;
     border-radius: 4px;
     border-left: 6px solid transparent;
   }
 
-  .selected.focused {
+  .list-item.selected.focused {
     border-left: 6px solid green;
   }
 
-  div.prevSelected {
+  .list-item.prevSelected {
     border-top-left-radius: 0px;
     border-top-right-radius: 0px;
   }
-  div.nextSelected {
+  .list-item.nextSelected {
     border-bottom-left-radius: 0px;
     border-bottom-right-radius: 0px;
   }

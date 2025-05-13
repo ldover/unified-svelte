@@ -1,7 +1,6 @@
 <!-- routes/list/+page.svelte -->
 <script lang="ts">
-    import { draggable } from '$lib/dnd.js'
-  import DragHandleUi from '$lib/DragHandleUI.svelte'
+  import DragHandleContentUI from '../components/DragHandleContentUI.svelte'
   import { ListSelection, SvelteList } from '$lib/list.js'
   import SvelteListUI from '$lib/SvelteListUI.svelte'
   import BasicListItemUi from '../components/BasicListItemUI.svelte'
@@ -32,7 +31,7 @@
     selection: 'multi',
     ...options,
     insertionBar: CustomInsertionBarUi,
-    dragHandle: DragHandleUi,
+    dragHandle: DragHandleContentUI,
     getDragImage: (items) => {
         const img = document.createElement('div')
         img.textContent = `${items.length} item${items.length> 1 ? 's' : ''}`

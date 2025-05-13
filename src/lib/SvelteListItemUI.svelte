@@ -4,6 +4,7 @@
   import { getContext, onDestroy, onMount } from 'svelte'
   import { focusOnClick } from './actions/focusOnClick.js'
   import { draggable } from './dnd.js'
+  import DragHandleUI from './DragHandleUI.svelte'
 
   export let item: SvelteListItem<any>
   export let index: number
@@ -56,10 +57,12 @@
   >
     <svelte:fragment slot="drag-handle">
       {#if list.options.dragHandle}
-        <svelte:component
+        <DragHandleUI {item}>
+          <svelte:component
           this={list.options.dragHandle}
           {...props}
         />
+        </DragHandleUI>
       {/if}
     </svelte:fragment>
   </svelte:component>

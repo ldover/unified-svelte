@@ -20,7 +20,7 @@ export {
 export {
   draggable,
   droppable,
-  registerFileHandler as registerExternalHandler,
+  registerFileHandler,
   type Droppable,
   type Draggable,
   type FileAdapter as ExternalAdapter
