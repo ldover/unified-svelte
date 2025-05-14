@@ -482,7 +482,7 @@ interface ListOptions {
   handlers?: {
     click?: Handler<MouseEvent>
     keydown?: Handler<KeyboardEvent>
-    drop?: Handler<DragEvent>
+    drop?: Handler<DragEvent, DropHandlerProps>
   }
 }
 
@@ -491,15 +491,21 @@ interface HandlerProps {
   index: number
 }
 
+interface DropHandlerProps {
+  slot: number | null  // dragover slot
+  item: number | null  // dragover item index
+  payload: unknown[]
+}
+
 /**
  * Interface for DOM handlers: click, keydown.
  *
  * To prevent the default behavior of list selection handler should return true.
  */
-export type Handler<E extends Event> = (
+export type Handler<E extends Event, Props = HandlerProps> = (
   this: SvelteList<any, any>,
   event: E,
-  props: HandlerProps
+  props: Props
 ) => boolean | void
 
 function defaultOptions(): ListOptions {
@@ -584,32 +590,20 @@ export class SvelteList<Y extends ID, T extends Content>
       console.warn('Drop into list item not implemented')
     }
 
+    if (this.options.handlers?.drop?.call(this, ev, {slot, item: dragoverIndex, payload, origin})) {
+      return
+    }
+
     if (slot == null) return
 
     if (origin == this.listId) {  
-      let fromSelection: ListSelection | null = null
-      const selection = this.getProp('selection')
       const items = this.getProp('items')
-      if (selection) {
-        const s1 = new Set(payload.map(item => item.id))
-        const s2 = new Set(selection.pick(items).map(i => (i.data as Y).id))
-        if (areSetsEqual(s1, s2)) {  // If we're dropping a selection
-          fromSelection = selection
-        }
-      }
-
-      if (!fromSelection) {
-        fromSelection = ListSelection.fromIndices(payload.map(p => items.findIndex(i => p.id == i.content.id)).filter(index => index >= 0))
-      }
+      const fromSelection = ListSelection.fromIndices(payload.map(p => items.findIndex(i => p.id == i.content.id)).filter(index => index >= 0))
 
       if (fromSelection) {
-       // TODO:(this.options.handlers.drop?.call(this, ev, payload, insertionIndex))
-
         this.move(fromSelection, slot);
       }
     } else {
-       // TODO:(this.options.handlers.drop?.call(this, ev, payload, insertionIndex))
-
       payload.reverse().forEach(item => {
         if (!this._ids.has(listItemId(this.listId, item))) {
           this.insert(item, slot)
@@ -716,7 +710,7 @@ export class SvelteList<Y extends ID, T extends Content>
     const n = this.items.length;
     if (to < 0 || to > n) throw new RangeError('`to` is out of bounds');
     if (typeof from == 'number') {
-      if (from < 0 || from > n) throw new RangeError('`from` is out of bounds');
+      if (from < 0 || from >= n) throw new RangeError('`from` is out of bounds');
     }
     const sel = typeof from === 'number' ? ListSelection.single(from) : from;
 
