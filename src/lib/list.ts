@@ -9,6 +9,8 @@ interface SvelteListProps<T extends Content> extends DroppableState {
   selection: ListSelection | null
   e: HTMLElement | null
   focused: SvelteListItem<T> | null
+  dragoverSlot: number | null  // Insertion slot
+  dragoverIndex: number | null  // List item
 }
 
 interface SelectOptions {
@@ -473,7 +475,7 @@ interface ListOptions {
   selection: 'multi' | 'single'
   dragHandle: any // TODO:type svelte component
   dropIgnore: string[]
-  insertionBar: any // TODO: type svelte component
+  insertionSlot: any // TODO: type svelte component
   serialize?(item: SvelteListItem<any>): string
   deserialize?(item: unknown): unknown
   getDragImage(items: SvelteListItem<any>[]): HTMLElement | null
@@ -507,7 +509,7 @@ function defaultOptions(): ListOptions {
     selection: 'multi',
     dragHandle: null,
     dropIgnore: [],
-    insertionBar: null,
+    insertionSlot: null,
     cache: true,
     getDragImage: () => null
   }
@@ -524,12 +526,9 @@ export class SvelteList<Y extends ID, T extends Content>
   private _cache: Map<string, SvelteListItem<T>>
   private _useCache: boolean
   
-  private data: HoverData | null = null
-  private closest: { index: number, e: HTMLElement} | null = null
-  
+  private closest: InsertionSlot | null = null
   
   public readonly options: ListOptions
-  public bar: InsertionBar
 
   constructor(
     data: Y[],
@@ -548,14 +547,13 @@ export class SvelteList<Y extends ID, T extends Content>
 
     const mergedOptions = mergeOptions(defaultOptions(), options)
     const cache = new Map<string, SvelteListItem<T>>()
-    super({ selection: null, items: [], focused: null, e: null, dragover: false })
+    super({ selection: null, items: [], focused: null, e: null, dragover: false, dragoverIndex: null, dragoverSlot: null })
     this._useCache = mergedOptions.cache
     this._cache = cache
     this.options = mergedOptions
     this.listId = this.options.id
     this.ignore = this.options.dropIgnore
-    this.bar = new InsertionBar({ component: this.options.insertionBar })
-
+    
     const items = buildItems(data, builder, mergedOptions.id, cache, mergedOptions.cache, this)
     this._addId(...items)
     this.set('items', items)  // TODO: can we redesign the SvelteReactive so we can avoid setting
@@ -579,12 +577,16 @@ export class SvelteList<Y extends ID, T extends Content>
 
   // In the simplest case what is being dragged? SvelteListItems...
   drop(ev: DragEvent, payload: Y[], origin: string): void {
-    // TODO: this.options.handlers.drop.call
+    const slot = this.getProp('dragoverSlot')
+    const dragoverIndex = this.getProp('dragoverIndex')
 
-    if (!(this.closest && this.data)) return  // TODO: simplify closest/data
-    if (this.data.pos == 0) return  // Don't drop into the list when drop occurs on the item
+    this.setDragover(ev, false)
 
-    const insertionIndex = findInsertion(this.data)  
+    if (dragoverIndex != null) {
+      console.warn('Drop into list item not implemented')
+    }
+
+    if (slot == null) return
 
     if (origin == this.listId) {  
       let fromSelection: ListSelection | null = null
@@ -599,39 +601,71 @@ export class SvelteList<Y extends ID, T extends Content>
       }
 
       if (!fromSelection) {
-        fromSelection = ListSelection.fromIndices(payload.map(p => items.findIndex(i => p.id == i.id)).filter(index => index >= 0))
+        fromSelection = ListSelection.fromIndices(payload.map(p => items.findIndex(i => p.id == i.content.id)).filter(index => index >= 0))
       }
 
       if (fromSelection) {
-        this.move(fromSelection, insertionIndex);
-      }
+       // TODO:(this.options.handlers.drop?.call(this, ev, payload, insertionIndex))
 
+        this.move(fromSelection, slot);
+      }
     } else {
+       // TODO:(this.options.handlers.drop?.call(this, ev, payload, insertionIndex))
+
       payload.reverse().forEach(item => {
         if (!this._ids.has(listItemId(this.listId, item))) {
-          this.insert(item, insertionIndex)
+          this.insert(item, slot)
         }
       })
     }
   }
 
   setDragover(event: DragEvent, dragover: boolean) {
-    this.closest = findClosest('[data-idx]', event)
-    const e = this.e
-  
-    if (this.closest && e) {
-      const item = this.items[this.closest.index]
-      this.data = calculateHover(this.closest.e, event, item.options.hover)
-      this.bar.show(this.closest.e, event, this.e , this.data)
-    }
-
-    if (dragover === this.dragover) return
-
+    /* leave list ───────────────────────────────────────── */
     if (!dragover) {
-      this.bar.hide()
+      this.update({
+        dragoverIndex: null,
+        dragoverSlot: null,
+        dragover: false
+      })
+      return
     }
 
-    this.set('dragover', dragover)
+    let slot: number | null = null
+    let dragoverIndex: number | null = null
+
+    // 1 ─ Try quick path: pointer is ON a sentinel slot
+    const slotEl = (event.target as HTMLElement).closest<HTMLElement>('[data-slot]');
+    if (slotEl) {
+      slot = Number(slotEl.dataset.slot)
+    } else {
+      // Pointer is NOT on a slot.
+      //        Either it’s on an item OR the list is empty and we’re on the container.
+      const itemEl = (event.target as HTMLElement).closest<HTMLElement>('[data-idx]');
+      if (!itemEl) {
+        // When list is not empty assume curwsor is below the last item
+        slot = !this.items.length ? 0 : this.items.length
+      } else {
+        // 2b ─ Over a real item → decide centre vs. edge-band.
+        const hover = calculateHover(itemEl, event, { threshold: 0.25 });  // 25 % edge
+
+        const idx = Number(itemEl.dataset.idx);
+        if (hover.pos != 0) {        
+           // Edge band ⇒ map to slot before/after the item */
+           slot = hover.pos === -1 ? idx : idx + 1
+        } else {
+          // Over the center of list item
+          dragoverIndex = idx
+        }
+      }
+    }
+
+
+    this.update({
+      dragoverSlot: slot,
+      dragover: true,
+      dragoverIndex: dragoverIndex
+    })
   }
 
   setData(data: Y[]): void {
@@ -960,22 +994,20 @@ export interface Content extends ID {
 }
 
 
-interface InsertionBarProps {
+interface InsertionSlotProps {
   visible: boolean
-  e: HTMLElement | null
-  translateY: number
 }
 
-interface InsertionBarOptions {
+interface InsertionSlotOptions {
   component: any
 }
 
-export class InsertionBar extends SvelteReactiveComponent<InsertionBarProps> {
+export class InsertionSlot extends SvelteReactiveComponent<InsertionSlotProps> {
 
-  public options: InsertionBarOptions
+  public options: InsertionSlotOptions
 
-  constructor(options: Partial<InsertionBarOptions> = {}) {
-    const merged: InsertionBarOptions = mergeOptions(
+  constructor(public index: number, options: Partial<InsertionSlotOptions> = {}) {
+    const merged: InsertionSlotOptions = mergeOptions(
       {
         component: null,
       },
@@ -983,46 +1015,22 @@ export class InsertionBar extends SvelteReactiveComponent<InsertionBarProps> {
     )
 
     super({
-        visible: false,
-        e: null,
-        translateY: -9999
+        visible: false
     })
 
     this.options = merged
   }
 
-  mount(e: HTMLElement) {
-    this.set('e', e)
-  }
-
-  show(item: HTMLElement, e: DragEvent, container: HTMLElement, data: HoverData) {
-    const rect  = item.getBoundingClientRect();
-    const midY  = rect.top + rect.height / 2;
-
-    // 2. compute target position *between* items
-    const above = e.clientY < midY;
-    const offset = above ? rect.top : rect.bottom;
-
-    if (data.pos == 0) {
-      this.set('visible', false)
-    } else {
-      /* converts clientY to an offset within e */
-      const { top } = container.getBoundingClientRect();
-      const yRelative = offset - top + container.scrollTop
-      this.update({visible: true, translateY: yRelative})
-    }
+  show() {
+    this.set('visible', true)
   }
 
   hide() {
-    this.update({visible: false})
+    this.set('visible', false)
   }
 
   get visible() {
     return this.getProp('visible')
-  }
-
-  get e() {
-    return this.getProp('e')
   }
 }
 

@@ -204,7 +204,6 @@ export function droppable<TExpected>(
 
   async function handleDrop(ev: DragEvent) {
     ev.preventDefault();
-    params.target.setDragover(ev, false);
 
     let payload: string | null = null
     let deserialized: TExpected[]

@@ -6,6 +6,7 @@
   export let item: SvelteListItem<Item>
 
   export let index: number
+  export let dragover: boolean
   export let selected: boolean
   export let nextSelected: boolean
   export let prevSelected: boolean
@@ -17,6 +18,7 @@
 
 <div
   class='list-item'
+  class:dragover
   class:selected
   class:prevSelected
   class:nextSelected
@@ -41,6 +43,10 @@
     margin-top: 4px;
     margin-left: 4px;
   }
+  .list-item.dragover { 
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 -2px 4px rgba(0, 0, 0, 0.06);
+  } 
+
   .list-item {
     position: relative;
     padding: 8px;

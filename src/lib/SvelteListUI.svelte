@@ -4,7 +4,7 @@
   import SvelteListItemUI from '$lib/SvelteListItemUI.svelte'
   import { onMount, setContext } from 'svelte'
   import { droppable } from './dnd.js'
-  import InsertionBarUi from './InsertionBarUI.svelte'
+  import InsertionSlotUi from './InsertionSlotUI.svelte'
 
   export let list: SvelteList<any, any>
   export let classes: string[] = []
@@ -16,7 +16,6 @@
   onMount(() => {
     list.setElement(e)
     computeSelected(list.selection, null)
-    bar.hide()
   })
 
   const computeSelected = (selection: ListSelection | null, prev: ListSelection | null) => {
@@ -136,15 +135,13 @@
   const handleBlur: Handler<FocusEvent> = function () {
     list.set('focused', null)
   }
-
-  let bar = list.bar
 </script>
 
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <div bind:this={e}  
      use:droppable={{ target: list }}
      class={classes.join(' ')} {style}>
-  <InsertionBarUi {bar} />
+  <InsertionSlotUi visible={$list.dragoverSlot == 0} slot={0}/>
   {#each $list.items as item, i (item.id)}
     <SvelteListItemUI
       on:click={(e) => handleClick.call(list, e, { item, index: i })}
@@ -153,6 +150,7 @@
       on:blur={(e) => handleBlur.call(list, e, { item, index: i })}
       {item}
       index={i}
+      dragover={i == $list.dragoverIndex}
       selected={selected.has(i)}
       nextSelected={selected.has(i + 1)}
       prevSelected={selected.has(i - 1)}
@@ -161,6 +159,7 @@
       first={i == 0}
       last={i == $list.items.length - 1}
     />
+    <InsertionSlotUi visible={$list.dragoverSlot == i + 1} slot={i + 1} />
   {/each}
 </div>
 

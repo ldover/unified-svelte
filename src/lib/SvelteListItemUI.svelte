@@ -8,6 +8,7 @@
 
   export let item: SvelteListItem<any>
   export let index: number
+  export let dragover: boolean
   export let selected: boolean
   export let nextSelected: boolean
   export let prevSelected: boolean
@@ -22,6 +23,7 @@
   // bundle all the props for easy spreading
   $: props = {
     index,
+    dragover,
     item,
     selected,
     nextSelected,
@@ -60,7 +62,6 @@
         <DragHandleUI {item}>
           <svelte:component
           this={list.options.dragHandle}
-          {...props}
         />
         </DragHandleUI>
       {/if}

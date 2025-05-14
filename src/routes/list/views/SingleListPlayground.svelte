@@ -4,7 +4,7 @@
   import { ListSelection, SvelteList } from '$lib/list.js'
   import SvelteListUI from '$lib/SvelteListUI.svelte'
   import BasicListItemUi from '../components/BasicListItemUI.svelte'
-  import CustomInsertionBarUi from '../components/InsertionBarContentUI.svelte'
+  import CustominsertionSlotUi from '../components/insertionSlotContentUI.svelte'
   import { ItemImpl } from '../components/item.js'
 
   export let listId: string = 'simple-list'
@@ -30,7 +30,7 @@
     id: listId,
     selection: 'multi',
     ...options,
-    insertionBar: CustomInsertionBarUi,
+    insertionSlot: CustominsertionSlotUi,
     dragHandle: DragHandleContentUI,
     getDragImage: (items) => {
         const img = document.createElement('div')
@@ -116,6 +116,7 @@
 <style>
   .list-container {
     height: 80%;
+    border: 1px solid black;
   }
   .playground {
     height: 100%;

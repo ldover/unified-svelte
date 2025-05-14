@@ -1,3 +1,4 @@
+// drag.ts
 import type { ListSelection } from "./list.js";
 
 export interface HoverData {
@@ -39,7 +40,7 @@ export function findClosest(sel: string, e: DragEvent): { index: number, e: HTML
     const target = (e.target as HTMLElement).closest<HTMLElement>(sel);
     if (!target) return null
 
-    return { index: Number(target.dataset.idx), e: target } 
+    return { index: Number(target.dataset.slot), e: target } 
 }
   
 export function calculateHover(target: HTMLElement, e: DragEvent, options: HoverOptions): HoverData {

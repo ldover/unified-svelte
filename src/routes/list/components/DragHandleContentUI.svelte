@@ -1,5 +1,7 @@
 <script lang="ts">
   let color: string = '#6b7280'
+
+  export let item
 </script>
 
 <div>
