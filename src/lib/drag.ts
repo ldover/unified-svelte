@@ -17,10 +17,6 @@ export interface HoverOptions {
     // bottom: number
 }
 
-export function findInsertion(hover: HoverData): number {
-    return hover.pos === -1 ? hover.index : hover.index + 1;
-}
-
 export function findMove(slot: number, sel: ListSelection | null): number {
     if (!sel) return slot;                       // nothing selected
   
@@ -35,26 +31,21 @@ export function findMove(slot: number, sel: ListSelection | null): number {
     const removedBefore = sel.indices().filter(i => i < slot).length;
     return slot - removedBefore;                 // adjust for lifted rows
 }
-
-export function findClosest(sel: string, e: DragEvent): { index: number, e: HTMLElement} | null {
-    const target = (e.target as HTMLElement).closest<HTMLElement>(sel);
-    if (!target) return null
-
-    return { index: Number(target.dataset.slot), e: target } 
-}
   
 export function calculateHover(target: HTMLElement, e: DragEvent, options: HoverOptions): HoverData {
-    const idx  = Number(target.dataset.idx);
-    const rect = target.getBoundingClientRect();
+  const idx  = Number(target.dataset.idx);
+  const rect = target.getBoundingClientRect();
 
-    
-    // TODO: calculate based on HoverOptions
-    const T    = Math.min(6, rect.height / 3);
-    let pos: -1|0|1 = 0;
-    if (e.clientY < rect.top + T)      pos = -1;
-    else if (e.clientY > rect.bottom - T) pos = 1;
-  
-  
-  
-    return { pos, index: idx };
+  const threshold = Math.max(0, Math.min(1, options.threshold)); // clamp between 0 and 1
+
+  const zoneHeight = 0.5 * rect.height * threshold;
+
+  let pos: -1 | 0 | 1 = 0;
+  if (e.clientY < rect.top + zoneHeight) {
+      pos = -1;
+  } else if (e.clientY > rect.bottom - zoneHeight) {
+      pos = 1;
+  }
+
+  return { pos, index: idx };
 }

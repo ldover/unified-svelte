@@ -1,6 +1,6 @@
 // lib/list.ts
-import type { DraggablePayload, Droppable, DroppableState, Draggable, DraggableState } from './dnd.js'
-import { findInsertion, type HoverData, type HoverOptions, findMove, findClosest, calculateHover } from './drag.js'
+import type { Draggable, DraggableState, Droppable, DroppableState } from './dnd.js'
+import { calculateHover, type HoverOptions } from './drag.js'
 import { SvelteReactiveComponent } from './reactive.js'
 import { inView, insert, mergeOptions } from './util.js'
 
@@ -526,8 +526,6 @@ export class SvelteList<Y extends ID, T extends Content>
   private _cache: Map<string, SvelteListItem<T>>
   private _useCache: boolean
   
-  private closest: InsertionSlot | null = null
-  
   public readonly options: ListOptions
 
   constructor(
@@ -643,13 +641,13 @@ export class SvelteList<Y extends ID, T extends Content>
       //        Either it’s on an item OR the list is empty and we’re on the container.
       const itemEl = (event.target as HTMLElement).closest<HTMLElement>('[data-idx]');
       if (!itemEl) {
-        // When list is not empty assume curwsor is below the last item
+        // When list is not empty assume cursor is below the last item
         slot = !this.items.length ? 0 : this.items.length
       } else {
         // 2b ─ Over a real item → decide centre vs. edge-band.
-        const hover = calculateHover(itemEl, event, { threshold: 0.25 });  // 25 % edge
-
         const idx = Number(itemEl.dataset.idx);
+        const hover = calculateHover(itemEl, event, this.items[idx].options.hover);  // 25 % edge
+
         if (hover.pos != 0) {        
            // Edge band ⇒ map to slot before/after the item */
            slot = hover.pos === -1 ? idx : idx + 1
@@ -954,6 +952,14 @@ export class SvelteList<Y extends ID, T extends Content>
 
   get dragover(): boolean {
     return this.getProp('dragover')
+  }
+
+  get dragoverIndex(): number | null {
+    return this.getProp('dragoverIndex')
+  }
+
+  get dragoverSlot(): number | null {
+    return this.getProp('dragoverSlot')
   }
 
   /* ------------------------------------------------------------------ */

@@ -16,7 +16,7 @@
     options: { 
         draggable: true,
         component: BasicListItemUi, 
-        hover: { threshold: 0.2 },
+        hover: { threshold: 1 },
     }
   })
 
