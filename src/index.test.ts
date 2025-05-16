@@ -4,6 +4,7 @@ import {
   SvelteListItem,
   type Content,
   SelectionRange,
+  propagateMove,
 } from './lib/list.js'
 import { describe, it, expect } from 'vitest'
 
@@ -524,3 +525,30 @@ describe('SvelteList.move', () => {
     expect(formatSelection(list.selection!)).toBe('1/2') // item '2' is now at index 1
   })
 })
+
+describe('propagateMove', () => {
+  it('reorders subset while keeping other elements stable', () => {
+    const src     =  ['a','b','c','d','e', 'f', 'g', 'h'];
+    const subset  =  ['c','b','a','h','e'];
+    const expected = ['c','b','a','d','h', 'f', 'g', 'e']
+    const result  = propagateMove(src, subset);
+    expect(result).toEqual(expected);
+  });
+
+  it('handles empty subset (no-op)', () => {
+    const src = [1,2,3];
+    const res = propagateMove(src, []);
+    expect(res).toEqual(src);
+  });
+
+  it('throws when subset has duplicates', () => {
+    const src = [1,2,3];
+    expect(() => propagateMove(src, [2,2])).toThrow();
+  });
+
+  it('throws when subset item not in src', () => {
+    const src = [1,2,3];
+    expect(() => propagateMove(src, [4])).toThrow();
+  });
+});
+

@@ -1199,11 +1199,33 @@ function checkSelection(
   }
 }
 
-function areSetsEqual(a: Set<string>, b: Set<string>) {
-  if (a.size !== b.size) return false;
-  for (const item of a) {
-    if (!b.has(item)) return false;
-  }
-  return true;
-}
+/**
+ * Map any arbitrary re‑ordering of a filtered array back onto the full
+ * source array.
+ * @param src - source array – must have unique elements
+ * @param subset - subset of items from src in a new order
+ * @returns 
+ */
+export function propagateMove<T>(
+  src: readonly T[],
+  subset: readonly T[]
+): T[] {
+  if (new Set(src).size !== src.length)
+    throw new Error('src must contain *unique* elements');
 
+  if (new Set(subset).size !== subset.length)
+    throw new Error('subset must not contain duplicates');
+
+  const inSrc = new Set(src);
+  for (const x of subset) {
+    if (!inSrc.has(x)) throw new Error('subset item not found in src');
+  }
+
+  // One-pass merge
+  const subsetSet = new Set(subset);
+  let   k = 0;                      
+
+  const out = src.map(el => subsetSet.has(el) ? subset[k++] : el);
+
+  return out;
+}

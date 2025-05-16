@@ -13,6 +13,7 @@ export {
   SvelteListItem,
   ListSelection,
   SelectionRange,
+  propagateMove,
   type List,
   type Content
 } from './list.js'
