@@ -24,9 +24,9 @@ export interface Draggable<P = unknown> extends Readable<DraggableState> {
 }
 
 /** Normalised payload placed on the DataTransfer */
-export interface DraggablePayload<T = unknown> {
+export interface DraggablePayload {
   origin: string;
-  data: T;
+  data: string;
 }
 
 /**
@@ -135,12 +135,10 @@ export function draggable<T>(
       return;
     }
 
-    const payload: DraggablePayload<T | T[]> = {
+    const payload: DraggablePayload = {
       origin: params.item.origin ?? '',
-      data: params.item.serialize(),
+      data: JSON.stringify(params.item.serialize()),
     };
-
-    console.log(payload)
 
     ev.dataTransfer?.setData(UNIFIED_MIME, JSON.stringify(payload));
 
@@ -239,7 +237,6 @@ export function droppable<TExpected>(
           deserialized = [deserialized]
       }
 
-       // TODO: see if we can avoid "as" type casting
         await params.target.drop(ev, deserialized, origin)
     }
   }

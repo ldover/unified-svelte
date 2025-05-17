@@ -1,14 +1,14 @@
 <!-- routes/list/+page.svelte -->
 <script lang="ts">
   import DragHandleContentUI from '../components/DragHandleContentUI.svelte'
-  import { ListSelection, SvelteList } from '$lib/list.js'
+  import { ListSelection, SvelteList, type ListOptions } from '$lib/list.js'
   import SvelteListUI from '$lib/SvelteListUI.svelte'
   import BasicListItemUi from '../components/BasicListItemUI.svelte'
   import CustominsertionSlotUi from '../components/insertionSlotContentUI.svelte'
   import { ItemImpl } from '../components/item.js'
 
   export let listId: string = 'simple-list'
-  export let options: { serialize: any, deserialize: any} = {}
+  export let options: Partial<ListOptions<any>> = {}
   export let data = generate(10)
 
   let builder = (d: { id: string }) => ({

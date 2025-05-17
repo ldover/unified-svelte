@@ -1,19 +1,17 @@
 <script lang=ts>
+    import type { ListOptions } from "$lib/list.js"
     import SingleListPlayground from "./SingleListPlayground.svelte"
 
-    export let options: { serialize: Function, deserialize: Function} = {}
+    export let options: Partial<ListOptions<any>>
 
 
-  function generate(num: number, start: number = 0) {
-    return [...new Array(num)].map((_, i) => ({
-      id: i + start + ''
-    }))
-  }
+    export let data1
+    export let data2
 </script>
 
 <div>
-    <SingleListPlayground {options} data={generate(10, 0)} listId='list-1'/>
-    <SingleListPlayground {options} data={generate(10, 10)} listId='list-2'/>
+    <SingleListPlayground {options} data={data1} listId='list-1'/>
+    <SingleListPlayground {options} data={data2} listId='list-2'/>
 </div>
 
 <style>

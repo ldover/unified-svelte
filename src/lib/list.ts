@@ -468,7 +468,7 @@ const buildItems = <Y extends ID, T extends Content>(
 
 type ListItemBuilder<Y, T> = (item: Y) => ListItemData<T>
 
-interface ListOptions {
+export interface ListOptions<T = unknown> {
   id: string // optional list id
   cache: boolean 
   focusOn: 'click' | 'mousedown' // default focus on click (although might be more web-native if focus on 'mousedown' is default)
@@ -477,13 +477,13 @@ interface ListOptions {
   dropIgnore: string[]
   insertionSlot: any // TODO: type svelte component
   serialize?(item: SvelteListItem<any>): string
-  deserialize?(item: unknown): unknown
+  deserialize?(item: string): T[]
   getDragImage(items: SvelteListItem<any>[]): HTMLElement | null
   onReorder?(items: SvelteListItem<any>[]): void,
   handlers?: {
     click?: Handler<MouseEvent>
     keydown?: Handler<KeyboardEvent>
-    drop?: Handler<DragEvent, DropHandlerProps>
+    drop?: Handler<DragEvent, DropHandlerProps<T>>
   }
 }
 
@@ -492,10 +492,10 @@ interface HandlerProps {
   index: number
 }
 
-interface DropHandlerProps {
+interface DropHandlerProps<T> {
   slot: number | null  // dragover slot
   item: number | null  // dragover item index
-  payload: unknown[]
+  payload: T[]
 }
 
 /**
@@ -509,7 +509,7 @@ export type Handler<E extends Event, Props = HandlerProps> = (
   props: Props
 ) => boolean | void
 
-function defaultOptions(): ListOptions {
+function defaultOptions<Y>(): ListOptions<Y> {
   return {
     id: `list-${Math.round(Math.random() * 100000)}`,
     focusOn: 'mousedown',
@@ -533,12 +533,12 @@ export class SvelteList<Y extends ID, T extends Content>
   private _cache: Map<string, SvelteListItem<T>>
   private _useCache: boolean
   
-  public readonly options: ListOptions
+  public readonly options: ListOptions<Y>
 
   constructor(
     data: Y[],
     public readonly builder: ListItemBuilder<Y, T>,
-    options: Partial<ListOptions> = {}
+    options: Partial<ListOptions<Y>> = {}
   ) {
     if (options.focusOn == 'click' && !options.dragHandle) {
       throw new Error(`'Invalid options: dragHandle has to be provided when focusOn is set to 'click'`)
@@ -550,7 +550,7 @@ export class SvelteList<Y extends ID, T extends Content>
       throw new Error('Invalid options: both serialize and deserialize have to be provided or none')
     }
 
-    const mergedOptions = mergeOptions(defaultOptions(), options)
+    const mergedOptions = mergeOptions(defaultOptions<Y>(), options)
     const cache = new Map<string, SvelteListItem<T>>()
     super({ selection: null, items: [], focused: null, e: null, dragover: false, dragoverIndex: null, dragoverSlot: null })
     this._useCache = mergedOptions.cache
@@ -564,20 +564,15 @@ export class SvelteList<Y extends ID, T extends Content>
     this.set('items', items)  // TODO: can we redesign the SvelteReactive so we can avoid setting
   }
 
-  deserialize(payload: string | string[]): Y | Y[] {
+  deserialize(payload: string): Y[] {
     // Custom deserialize
     if (this.options.deserialize) {
       return this.options.deserialize(payload)
     }
 
-    let items: string[]
-    if (typeof payload == 'string') {
-      items = [payload]
-    } else {
-      items = payload
-    }
+    let parsed = JSON.parse(payload) as string[]
     
-    return items.map(id => this._ids.get(id)).filter(Boolean).map(item => (item as SvelteListItem<any>).data as Y)
+    return parsed.map(id => this._ids.get(id)).filter(Boolean).map(item => (item as SvelteListItem<any>).data as Y)
   }
 
   // In the simplest case what is being dragged? SvelteListItems...
