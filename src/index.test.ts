@@ -526,29 +526,37 @@ describe('SvelteList.move', () => {
   })
 })
 
+function makeItems(ids: string[]) {
+  return ids.map(id => ({ id }));
+}
+
 describe('propagateMove', () => {
   it('reorders subset while keeping other elements stable', () => {
-    const src     =  ['a','b','c','d','e', 'f', 'g', 'h'];
-    const subset  =  ['c','b','a','h','e'];
-    const expected = ['c','b','a','d','h', 'f', 'g', 'e']
-    const result  = propagateMove(src, subset);
-    expect(result).toEqual(expected);
+    const src = makeItems(['a','b','c','d','e','f','g','h']);
+    const subsetOrder = ['c','b','a','h','e'];
+    const subset = subsetOrder.map(id => src.find(x => x.id === id)!);
+
+    const result = propagateMove(src, subset);
+    const resultIds = result.map(x => x.id);
+    expect(resultIds).toEqual(['c','b','a','d','h','f','g','e']);
   });
 
   it('handles empty subset (no-op)', () => {
-    const src = [1,2,3];
-    const res = propagateMove(src, []);
-    expect(res).toEqual(src);
+    const src = makeItems(['1','2','3']);
+    const result = propagateMove(src, []);
+    expect(result).toEqual(src);
   });
 
   it('throws when subset has duplicates', () => {
-    const src = [1,2,3];
-    expect(() => propagateMove(src, [2,2])).toThrow();
+    const src = makeItems(['1','2','3']);
+    const dupItem = src[1];
+    expect(() => propagateMove(src, [dupItem, dupItem])).toThrow('subset must not contain duplicates');
   });
 
   it('throws when subset item not in src', () => {
-    const src = [1,2,3];
-    expect(() => propagateMove(src, [4])).toThrow();
+    const src = makeItems(['1','2','3']);
+    const outsider = { id: '4' };
+    expect(() => propagateMove(src, [outsider])).toThrow("subset contains id '4' not found in source");
   });
 });
 

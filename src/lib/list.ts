@@ -479,6 +479,7 @@ interface ListOptions {
   serialize?(item: SvelteListItem<any>): string
   deserialize?(item: unknown): unknown
   getDragImage(items: SvelteListItem<any>[]): HTMLElement | null
+  onReorder?(items: SvelteListItem<any>[]): void,
   handlers?: {
     click?: Handler<MouseEvent>
     keydown?: Handler<KeyboardEvent>
@@ -738,7 +739,12 @@ export class SvelteList<Y extends ID, T extends Content>
       newSelection   = ListSelection.fromIndices(newIdx);
     }
 
+    /* 5. Check for no-op */
+    const same = this.items.every((it, i) => it.id === items[i].id);
+    if (same) return; 
+
     this.update({ items, selection: newSelection });
+    this.options.onReorder?.(items)
   }
 
   remove(contentId: string): void {
@@ -1206,7 +1212,7 @@ function checkSelection(
  * @param subset - subset of items from src in a new order
  * @returns 
  */
-export function propagateMove<T>(
+export function propagateMove<T extends ID>(
   src: readonly T[],
   subset: readonly T[]
 ): T[] {
@@ -1216,16 +1222,17 @@ export function propagateMove<T>(
   if (new Set(subset).size !== subset.length)
     throw new Error('subset must not contain duplicates');
 
-  const inSrc = new Set(src);
-  for (const x of subset) {
-    if (!inSrc.has(x)) throw new Error('subset item not found in src');
+  // Validate subset is truly a subset of src
+  const srcMap = new Map(src.map(item => [item.id, item]));
+  for (const id of subset.map(s => s.id)) {
+    if (!srcMap.has(id)) {
+      throw new Error(`subset contains id '${id}' not found in source`);
+    }
   }
 
-  // One-pass merge
+  // Merge in one pass
   const subsetSet = new Set(subset);
-  let   k = 0;                      
+  let k = 0;                      
 
-  const out = src.map(el => subsetSet.has(el) ? subset[k++] : el);
-
-  return out;
+  return src.map(el => subsetSet.has(el) ? subset[k++] : el);
 }
