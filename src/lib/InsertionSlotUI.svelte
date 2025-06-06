@@ -14,25 +14,26 @@
   {#if list.options.insertionSlot}
     <svelte:component this={list.options.insertionSlot} {slot} {visible} />
   {:else}
-    <div class:visible class="slot-content"></div>
+    <div class:visible class="insertion-slot"></div>
   {/if}
 </div>
 
 <style>
   /* TODO: try using :after pseudoselector here */
-  .slot-content {
-    height: 2px;
-    background: transparent;
-  }
-  
-  .slot-content.visible {
-    background-color: dodgerblue;
+  .insertion-slot {
+    position: relative; /* establish a containing block */
+    height: 0;
   }
 
-  .slot {
-    /* TODO: Smooth transform and fade */
-    transition:
-      transform 80ms ease,
-      opacity 100ms ease;
+  .insertion-slot.visible::after {
+    content: '';
+    position: absolute; /* absolutely-positioned so it doesn’t contribute to flow */
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px; /* thickness of your insertion indicator */
+    background: #007bff;
+    pointer-events: none;
+    z-index: 10;
   }
 </style>

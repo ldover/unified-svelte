@@ -473,6 +473,7 @@ export interface ListOptions<T = unknown> {
   cache: boolean 
   focusOn: 'click' | 'mousedown' // default focus on click (although might be more web-native if focus on 'mousedown' is default)
   selection: 'multi' | 'single'
+  droppable: boolean
   dragHandle: any // TODO:type svelte component
   dropIgnore: string[]
   insertionSlot: any // TODO: type svelte component
@@ -493,7 +494,7 @@ interface HandlerProps {
 }
 
 interface DropHandlerProps<T> {
-  slot: number | null  // dragover slot
+  slot: number  // dragover slot
   item: number | null  // dragover item index
   payload: T[]
 }
@@ -516,6 +517,7 @@ function defaultOptions<Y>(): ListOptions<Y> {
     selection: 'multi',
     dragHandle: null,
     dropIgnore: [],
+    droppable: true,
     insertionSlot: null,
     cache: true,
     getDragImage: () => null
@@ -552,7 +554,7 @@ export class SvelteList<Y extends ID, T extends Content>
 
     const mergedOptions = mergeOptions(defaultOptions<Y>(), options)
     const cache = new Map<string, SvelteListItem<T>>()
-    super({ selection: null, items: [], focused: null, e: null, dragover: false, dragoverIndex: null, dragoverSlot: null })
+    super({ selection: null, items: [], focused: null, e: null, droppable: mergedOptions.droppable, dragover: false, dragoverIndex: null, dragoverSlot: null })
     this._useCache = mergedOptions.cache
     this._cache = cache
     this.options = mergedOptions
@@ -579,6 +581,7 @@ export class SvelteList<Y extends ID, T extends Content>
   drop(ev: DragEvent, payload: Y[], origin: string): void {
     const slot = this.getProp('dragoverSlot')
     const dragoverIndex = this.getProp('dragoverIndex')
+    if (slot == null) return  // Shouldn't happen
 
     this.setDragover(ev, false)
 
@@ -590,7 +593,6 @@ export class SvelteList<Y extends ID, T extends Content>
       return
     }
 
-    if (slot == null) return
 
     if (origin == this.listId) {  
       const items = this.getProp('items')
@@ -943,6 +945,10 @@ export class SvelteList<Y extends ID, T extends Content>
     }
 
     return []
+  }
+
+  get droppable(): boolean {
+    return this.getProp('droppable')
   }
 
   get dragover(): boolean {

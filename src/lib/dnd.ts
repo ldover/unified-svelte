@@ -10,7 +10,7 @@ export const UNIFIED_MIME = 'application/x-unified';
 /** Draggable → store state */
 export interface DraggableState { draggable: boolean }
 /** Droppable → store state */
-export interface DroppableState { dragover: boolean }
+export interface DroppableState { dragover: boolean, droppable: boolean }
 
 /**
  * First‑class draggable description used by client components.
@@ -38,6 +38,7 @@ export interface Droppable<TExpected = unknown>
   drop(ev: DragEvent, payload: TExpected[], origin: string): void | Promise<void>;
   setDragover(ev: DragEvent, on: boolean): void;
   ignore?: string[]; // list of origins to reject
+  droppable: boolean
 }
 
 /* ---------------------------------------------------------------- *
@@ -189,11 +190,14 @@ export function droppable<TExpected>(
 ) {
 
     async function handleDragOver(ev: DragEvent) {
-    // TODO: implement blacklist based on target.ignore and origin  of the drag event
-    //       although I think we only do that for
+      if (!params.target.droppable) {
+        return
+      }
+      // TODO: implement blacklist based on target.ignore and origin  of the drag event
+      //       although I think we only do that for
 
-    ev.preventDefault(); // signal drop allowed
-    params.target.setDragover(ev, true);
+      ev.preventDefault(); // signal drop allowed
+      params.target.setDragover(ev, true);
   }
 
   function handleDragLeave(ev: DragEvent) {

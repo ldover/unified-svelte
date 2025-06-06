@@ -3,19 +3,26 @@
 
   let e: HTMLElement
   export let slot: number
-  export let visible:  boolean
-
+  export let visible: boolean
 </script>
 
-<div class:visible={visible} bind:this={e} class="bar-content"></div>
+<div class:visible bind:this={e} class="insertion-slot"></div>
 
 <style>
-  .bar-content {
-    border-top: 2px solid transparent;
-
+  .insertion-slot {
+    position: relative; /* establish a containing block */
+    height: 0;
   }
 
-  .bar-content.visible {
-    border-top: 2px solid red;
+  .insertion-slot.visible::after {
+    content: '';
+    position: absolute; /* absolutely-positioned so it doesn’t contribute to flow */
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px; /* thickness of your insertion indicator */
+    background: red;
+    pointer-events: none;
+    z-index: 10;
   }
 </style>

@@ -16,6 +16,7 @@
   registerFileHandler({onHandle: fileHandler})
   
   let options: Partial<ListOptions<{id: string}>> = {
+    droppable: true,
     serialize: (item) => {
       console.log('custom serialize', item.data)
       return (item.data as {id: string}).id
