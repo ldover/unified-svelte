@@ -892,19 +892,19 @@ export class SvelteList<Y extends ID, T extends Content>
   }
 
   up() {
-    if (this.focused && this.selection) {
+    if (this.selection) {
       const i = this.selection.main.head - 1
       if (i > 0) {
-        this.select(ListSelection.single(i - 1), { focus: true })
+        this.select(ListSelection.single(i - 1), { focus: !!this.focused })
       }
     }
   }
 
   down() {
-    if (this.focused && this.selection) {
+    if (this.selection) {
       const i = this.selection.main.head - 1
       if (i < this.items.length - 1) {
-        this.select(ListSelection.single(i + 1), { focus: true })
+        this.select(ListSelection.single(i + 1), { focus: !!this.focused })
       }
     }
   }
