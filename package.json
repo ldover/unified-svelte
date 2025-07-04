@@ -3,7 +3,7 @@
   "author": "Luka Dover",
   "email": "luka.dover@gmail.com",
   "description": "Low-level Svelte components",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "publishConfig": {
     "access": "public"
   },
