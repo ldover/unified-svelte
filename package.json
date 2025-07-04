@@ -1,6 +1,17 @@
 {
   "name": "unified-svelte",
+  "author": "Luka Dover",
+  "email": "luka.dover@gmail.com",
+  "description": "Low-level Svelte components",
   "version": "0.4.10",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ldover/unified-svelte.git"
+  },
+  "license": "Unlicense",
   "scripts": {
     "dev": "vite dev",
     "pack": "vite build && npm run package && npm pack",
