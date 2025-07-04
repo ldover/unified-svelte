@@ -1,6 +1,6 @@
 {
-  "name": "tree",
-  "version": "0.4.9",
+  "name": "unified-svelte",
+  "version": "0.4.10",
   "scripts": {
     "dev": "vite dev",
     "pack": "vite build && npm run package && npm pack",
