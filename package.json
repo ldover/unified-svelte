@@ -2,7 +2,7 @@
   "name": "unified-svelte",
   "author": "Luka Dover",
   "email": "luka.dover@gmail.com",
-  "description": "Low-level Svelte components",
+  "description": "Headless components & interaction utilities for Svelte projects",
   "version": "0.4.12",
   "publishConfig": {
     "access": "public"
