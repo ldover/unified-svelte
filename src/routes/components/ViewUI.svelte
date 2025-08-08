@@ -5,6 +5,7 @@
   import type { SvelteTree, SvelteTreeNode } from '$lib/tree.js'
 
   export let node: SvelteTreeNode<ViewImpl>
+  export let level: number
 
   let tree: SvelteTree<ViewImpl> = getContext('tree')
 
@@ -40,7 +41,7 @@
     on:click={() => node.selectable && tree.select(node)}
   >
     <!-- Indent note view based on the level of nesting -->
-    <div style="min-width: {node.level > 0 ? (node.level + 1) * 16 - 16 : 0}px;"></div>
+    <div style="min-width: {level > 0 ? (level + 1) * 16 - 16 : 0}px;"></div>
 
     <div class="control flex-shrink-0">
       {#if node.children.length}

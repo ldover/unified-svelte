@@ -3,6 +3,7 @@
   import type { ViewImpl } from './view.js'
 
   export let node: SvelteTreeNode<ViewImpl>
+  export let level: number
 </script>
 
 <div class="w-full rounded-md border border-orange-400" class:show-border={$node.borderVisible}>

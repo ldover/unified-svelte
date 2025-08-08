@@ -15,7 +15,6 @@ interface TreeNodeProps<N extends TreeNode<N, T>, T> {
   parent: N | null
   children: N[]
   collapsed: boolean
-  level: number
 }
 
 export interface Tree<N extends TreeNode<N, T>, T> extends TreeProps<N, T> {
@@ -194,7 +193,6 @@ export class SvelteTreeNode<T extends ID>
     id: string,
     content: T,
     children: SvelteTreeNode<T>[],
-    level: number,
     options: Partial<SvelteTreeNodeOptions>
   ) {
     const merged: SvelteTreeNodeOptions = mergeOptions(
@@ -212,7 +210,6 @@ export class SvelteTreeNode<T extends ID>
       id,
       content,
       children,
-      level,
       contentComponent: merged.contentComponent,
       containerComponent: merged.containerComponent,
       borderVisible: merged.borderVisible,
@@ -232,10 +229,6 @@ export class SvelteTreeNode<T extends ID>
 
   get children(): SvelteTreeNode<T>[] {
     return this.getProp('children')
-  }
-
-  get level(): number {
-    return this.getProp('level')
   }
 
   get contentComponent(): object | null {

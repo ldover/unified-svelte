@@ -8,4 +8,4 @@
   setContext('tree', tree)
 </script>
 
-<TreeNode node={tree.root} />
+<TreeNode node={tree.root} level={0}/>

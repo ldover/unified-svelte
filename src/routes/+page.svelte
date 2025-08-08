@@ -10,15 +10,15 @@
     '1',
     new ViewImpl('Workshop'),
     [
-      new SvelteTreeNode('1.1', new ViewImpl('Tiger'), [], 1, {
+      new SvelteTreeNode('1.1', new ViewImpl('Tiger'), [], {
         contentComponent: ViewUI,
         containerComponent: ViewUIContainer
       }),
-      new SvelteTreeNode('1.2', view, [], 1, {
+      new SvelteTreeNode('1.2', view, [], {
         contentComponent: ViewUI,
         containerComponent: ViewUIContainer
       }),
-      new SvelteTreeNode('1.20', view, [], 1, {
+      new SvelteTreeNode('1.20', view, [], {
         contentComponent: ViewUI,
         containerComponent: ViewUIContainer
       }),
@@ -26,20 +26,19 @@
         '1.3',
         new ViewImpl('All tabs'),
         [
-          new SvelteTreeNode('1.3.1', new ViewImpl('Current projects'), [], 2, {
+          new SvelteTreeNode('1.3.1', new ViewImpl('Current projects'), [], {
             contentComponent: ViewUI,
             containerComponent: ViewUIContainer
           }),
-          new SvelteTreeNode('1.3.2', new ViewImpl('On Deck'), [], 2, {
+          new SvelteTreeNode('1.3.2', new ViewImpl('On Deck'), [], {
             contentComponent: ViewUI,
             containerComponent: ViewUIContainer
           }),
-          new SvelteTreeNode('1.3.3', view, [], 1, {
+          new SvelteTreeNode('1.3.3', view, [], {
             contentComponent: ViewUI,
             containerComponent: ViewUIContainer
           })
         ],
-        1,
         {
           contentComponent: ViewUI,
           containerComponent: ViewUIContainer,
@@ -49,7 +48,6 @@
         }
       )
     ],
-    0,
     {
       contentComponent: ViewUI,
       containerComponent: ViewUIContainer,
