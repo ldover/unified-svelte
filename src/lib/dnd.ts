@@ -149,10 +149,6 @@ export function draggable<T>(
       ev.dataTransfer!.effectAllowed = 'copyMove';
     }
 
-    if (params.item.effectAllowed == 'move') {
-        // TODO: Remove from parent
-    }
-
     const img = params.item.getDragImage?.();
     if (img) {
       ev.dataTransfer!.setDragImage(img, 0, 0);
@@ -193,6 +189,10 @@ export function droppable<TExpected>(
       if (!params.target.droppable) {
         return
       }
+
+      if (ev.dataTransfer) {
+        ev.dataTransfer.dropEffect = ev.altKey ? 'copy' : 'move'
+      }
       // TODO: implement blacklist based on target.ignore and origin  of the drag event
       //       although I think we only do that for
 
@@ -206,6 +206,10 @@ export function droppable<TExpected>(
 
   async function handleDrop(ev: DragEvent) {
     ev.preventDefault();
+
+    if (ev.dataTransfer) {
+      ev.dataTransfer.dropEffect = ev.altKey ? 'copy' : 'move'
+    }
 
     let payload: string | null = null
     let deserialized: TExpected[]

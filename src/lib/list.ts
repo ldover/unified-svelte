@@ -494,7 +494,7 @@ interface HandlerProps {
 }
 
 interface DropHandlerProps<T> {
-  slot: number  // dragover slot
+  slot: number | null // dragover slot; if slot is null, drop occurred into list item
   item: number | null  // dragover item index
   payload: T[]
 }
@@ -577,36 +577,40 @@ export class SvelteList<Y extends ID, T extends Content>
     return parsed.map(id => this._ids.get(id)).filter(Boolean).map(item => (item as SvelteListItem<any>).data as Y)
   }
 
-  // In the simplest case what is being dragged? SvelteListItems...
   drop(ev: DragEvent, payload: Y[], origin: string): void {
+    // dragoverSlot and dragoverIndex are mutually exclusive:
+    // - dragover slot is used when inserting a new list item
+    // - dragover index is used when dropping the payload into the list item
     const slot = this.getProp('dragoverSlot')
     const dragoverIndex = this.getProp('dragoverIndex')
-    if (slot == null) return  // Shouldn't happen
 
     this.setDragover(ev, false)
-
-    if (dragoverIndex != null) {
-      console.warn('Drop into list item not implemented')
-    }
 
     if (this.options.handlers?.drop?.call(this, ev, {slot, item: dragoverIndex, payload, origin})) {
       return
     }
 
-
-    if (origin == this.listId) {  
-      const items = this.getProp('items')
-      const fromSelection = ListSelection.fromIndices(payload.map(p => items.findIndex(i => p.id == i.content.id)).filter(index => index >= 0))
-
-      if (fromSelection) {
-        this.move(fromSelection, slot);
-      }
-    } else {
-      payload.reverse().forEach(item => {
-        if (!this._ids.has(listItemId(this.listId, item))) {
-          this.insert(item, slot)
+    // We let custom handlers handle drop-into-list-item case
+    if (dragoverIndex != null) {
+      return
+    }
+  
+    // Execute move or insert depending on whether the items originate from this list or not
+    if (slot != null) {
+      if (origin == this.listId) {  
+        const items = this.getProp('items')
+        const fromSelection = ListSelection.fromIndices(payload.map(p => items.findIndex(i => p.id == i.content.id)).filter(index => index >= 0))
+  
+        if (fromSelection) {
+          this.move(fromSelection, slot);
         }
-      })
+      } else {
+        payload.reverse().forEach(item => {
+          if (!this._ids.has(listItemId(this.listId, item))) {
+            this.insert(item, slot)
+          }
+        })
+      }
     }
   }
 

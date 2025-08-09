@@ -16,7 +16,7 @@
     options: { 
         draggable: true,
         component: BasicListItemUi, 
-        hover: { threshold: 1 },
+        hover: { threshold: 0.5 },
     }
   })
 
@@ -47,6 +47,9 @@
           this.selection?.pick(this.items).forEach((item) => console.log('archive', item))
           return true
         }
+      },
+      drop: (ev, props) => {
+        console.log('drop', {props, dropEffect: ev.dataTransfer?.dropEffect})
       }
     }
   })
