@@ -3,7 +3,7 @@
   "author": "Luka Dover",
   "email": "luka.dover@gmail.com",
   "description": "Headless components & interaction utilities for Svelte projects",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "publishConfig": {
     "access": "public"
   },
