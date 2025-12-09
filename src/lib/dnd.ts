@@ -267,12 +267,5 @@ export function droppable<TExpected>(
   } as const;
 }
 
-/* ---------------------------------------------------------------- *
- * 5.  Register adapters
- * ---------------------------------------------------------------- */
-
-registerAdapter(imageFileAdapter);
-registerAdapter(noteFileAdapter);
-
 export const defaultAdapters = [imageFileAdapter, noteFileAdapter]
 
