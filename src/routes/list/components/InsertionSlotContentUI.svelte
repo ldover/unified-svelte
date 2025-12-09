@@ -1,6 +1,4 @@
 <script lang="ts">
-  import type { InsertionSlot } from '$lib/list.js'
-
   let e: HTMLElement
   export let slot: number
   export let visible: boolean

@@ -4,7 +4,7 @@
   import { ListSelection, SvelteList, type ListOptions } from '$lib/list.js'
   import SvelteListUI from '$lib/SvelteListUI.svelte'
   import BasicListItemUi from '../components/BasicListItemUI.svelte'
-  import CustominsertionSlotUi from '../components/insertionSlotContentUI.svelte'
+  import CustominsertionSlotUi from '../components/InsertionSlotContentUI.svelte'
   import { ItemImpl } from '../components/item.js'
 
   export let listId: string = 'simple-list'
