@@ -57,7 +57,7 @@ export function registerAdapter(adapter: FileAdapter): void {
   adapters.push(adapter);
 }
 
-type FileHandler = (target: Droppable, data: unknown[]) => Promise<unknown[]>
+type FileHandler = (target: Droppable, data: unknown[], ctx?: FileDropContext) => Promise<unknown[]>;
 let fileHandler: FileHandler| null = null
 
 /** To parse files */
@@ -175,6 +175,12 @@ export function draggable<T>(
   } as const;
 }
 
+export interface DroppableActionParams<T = unknown> {
+  target: Droppable<T>;
+  fileContext?: FileDropContext;
+}
+export type FileDropContext = { mode?: 'create' | 'attach'; entityId?: string; kind?: string };
+
 /** Params for the `droppable` action. */
 export interface DroppableActionParams<T = unknown> {
   target: Droppable<T>;
@@ -223,7 +229,7 @@ export function droppable<TExpected>(
       if (!data) return
       
       // TODO: tighten the type safety here
-      deserialized = await fileHandler(params.target, data) as TExpected[]
+      deserialized = await fileHandler(params.target, data, params.fileContext) as TExpected[]
       if (!deserialized) {
         return
       }
